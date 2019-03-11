@@ -68,4 +68,53 @@ private:
 			GrowForAdditional(len);
 	}
 };
+
+// InlineHashBuilder is a collection of helper functions that assist
+// in adding state to an incremental hash function.
+// eg
+//  char digest[16];
+//  InlineHashBuilder<hash::SpookyV2> hb;
+//  hb.Add("foobar");
+//  hb.Final(digest);
+template <typename THash>
+class InlineHashBuilder {
+public:
+	THash Hash;
+
+	void Final(void* digest) {
+		Hash.Final(digest);
+	}
+
+	template <typename T>
+	void Add(const T& v) {
+		AddBytes(&v, sizeof(v));
+	}
+
+	void Add(const std::string& v) {
+		AddBytes(v.c_str(), v.length());
+	}
+
+	void Add(const char* s) {
+		AddBytes(s, strlen(s));
+	}
+
+	void Add(const HashBuilder& v) {
+		AddBytes(v.Buf, v.Len);
+	}
+
+	template <typename T>
+	void Add(const std::vector<T>& v) {
+		for (const auto& el : v)
+			Add(el);
+	}
+
+	void AddString(const char* s) {
+		AddBytes(s, strlen(s));
+	}
+
+	void AddBytes(const void* b, size_t len) {
+		Hash.Update(b, len);
+	}
+};
+
 } // namespace imqs

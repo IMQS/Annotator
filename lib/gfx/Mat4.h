@@ -77,6 +77,7 @@ public:
 	// equivalent to a glScale3
 	void Scale(T x, T y, T z, bool post = true) {
 		Mat4 m;
+		m.MakeIdentity();
 		m.XX = x;
 		m.YY = y;
 		m.ZZ = z;
@@ -129,6 +130,7 @@ public:
 
 	void Translate(T x, T y, T z, bool post = true) {
 		Mat4 tm;
+		tm.MakeIdentity();
 		tm.XW = x;
 		tm.YW = y;
 		tm.ZW = z;

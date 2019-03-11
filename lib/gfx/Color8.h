@@ -71,6 +71,7 @@ public:
 
 	static Color8 White() { return Color8(255, 255, 255, 255); }
 	static Color8 Black() { return Color8(0, 0, 0, 255); }
+	static Color8 Red() { return Color8(255, 0, 0, 255); }
 	static Color8 Transparent() { return Color8(0, 0, 0, 0); }
 
 	static float SRGBtoLinear(float v) {

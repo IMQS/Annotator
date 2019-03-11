@@ -29,10 +29,11 @@ public:
 	Error Open(const std::string& filename);   // Open a file for read-only access
 	Error Create(const std::string& filename); // Create a new file, or truncate an existing file
 
-	int64_t Length();
-	int64_t Position() const { return Pos; }
-	bool    IsOpen() const;
-	Error   Close();
+	int64_t  Length();
+	int64_t  Position() const { return Pos; }
+	bool     IsOpen() const;
+	Error    Close();
+	uint8_t* MemBase() const { return Base; }
 
 private:
 	bool        IsWrite = false;

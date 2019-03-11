@@ -85,6 +85,12 @@ bool WinService_State::Run() {
 	return true;
 }
 
+void WinService_State::SetStopped() {
+	SetEvent(SvcStopEvent);
+	if (OnStop)
+		OnStop();
+}
+
 // The arguments here are NOT the regular command-line arguments.
 // It is special arguments that the user can type in on the services control panel, or that another process can send us via StartService().
 bool WinService_State::SvcMain_Start(DWORD dwArgc, TCHAR** lpszArgv) {
@@ -105,7 +111,7 @@ bool WinService_State::SvcMain_Start(DWORD dwArgc, TCHAR** lpszArgv) {
 		SvcStatusHandle                   = RegisterServiceCtrlHandlerEx(SvcName.c_str(), ctrlHandler, this); // name is ignored for SERVICE_WIN32_OWN_PROCESS
 		if (SvcStatusHandle == nullptr) {
 			LastError = "Unable to do RegisterServiceCtrlHandlerEx: " + SysLastErrMsg();
-			SetEvent(SvcStopEvent);
+			SetStopped();
 			return false;
 		}
 	}
@@ -167,7 +173,7 @@ DWORD WINAPI WinService_State::DefaultSvcCtrlHandler(DWORD dwCtrl, DWORD dwEvent
 	switch (dwCtrl) {
 	case SERVICE_CONTROL_STOP:
 		self->ReportSvcStatus(WinService_Status::Stop_Pending, 0);
-		SetEvent(self->SvcStopEvent);
+		self->SetStopped();
 		return NO_ERROR;
 
 	case SERVICE_CONTROL_INTERROGATE:
@@ -193,10 +199,10 @@ BOOL WINAPI WinService_State::ConsoleHandler(DWORD CtrlType) {
 	switch (CtrlType) {
 	case CTRL_C_EVENT:
 	case CTRL_BREAK_EVENT:
-		SetEvent(SingleRunningService->SvcStopEvent);
+		SingleRunningService->SetStopped();
 		return true;
 	}
 	return false;
 }
-}
-}
+} // namespace os
+} // namespace imqs

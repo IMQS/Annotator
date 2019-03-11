@@ -35,6 +35,11 @@ bool contains(const C& container, const V& val) {
 	return false;
 }
 
+template <typename T>
+void append_to(std::vector<T>& a, const std::vector<T>& b) {
+	a.insert(a.end(), b.begin(), b.end());
+}
+
 } // namespace stdutils
 
 /* I may some day have the energy to make this work easily.

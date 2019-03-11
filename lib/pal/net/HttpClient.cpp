@@ -7,9 +7,11 @@
 namespace imqs {
 namespace http {
 
+static std::string DefaultCACertFile;
+
 static StaticError ErrResolveProxyFailed("ResolveProxy Failed");
 static StaticError ErrResolveHostFailed("ResolveHost Failed");
-static StaticError ErrConnectedFailed("Connected Failed");
+static StaticError ErrConnectionFailed("Connection Failed");
 static StaticError ErrTimeout("Timeout");
 static StaticError ErrTooManyRedirects("Too Many Redirects");
 static StaticError ErrNoHeadersInResponse("No Headers In Response");
@@ -195,6 +197,10 @@ IMQS_PAL_API void Initialize() {
 
 IMQS_PAL_API void Shutdown() {
 	curl_global_cleanup();
+}
+
+IMQS_PAL_API void SetDefaultCACertFile(std::string defaultCACertFile) {
+	DefaultCACertFile = defaultCACertFile;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -660,6 +666,10 @@ void Connection::Perform(const Request& request, Response& response) {
 	ReadPtr         = (uint8_t*) &request.Body[0];
 	CurrentResponse = &response;
 
+	std::string caCert = request.CACertFile;
+	if (caCert == "" && DefaultCACertFile != "")
+		caCert = DefaultCACertFile;
+
 	// initialize with this new request's parameters
 	curl_easy_setopt(CurlC, CURLOPT_URL, request.Url.c_str());
 	curl_easy_setopt(CurlC, CURLOPT_READFUNCTION, CurlMyRead);
@@ -670,8 +680,11 @@ void Connection::Perform(const Request& request, Response& response) {
 	curl_easy_setopt(CurlC, CURLOPT_HEADERDATA, this);
 	curl_easy_setopt(CurlC, CURLOPT_TIMEOUT_MS, request.TimeoutMilliseconds);
 	curl_easy_setopt(CurlC, CURLOPT_NOSIGNAL, 1);
-	curl_easy_setopt(CurlC, CURLOPT_CAINFO, request.CACertFile != "" ? request.CACertFile.c_str() : nullptr);
+	curl_easy_setopt(CurlC, CURLOPT_CAINFO, caCert != "" ? caCert.c_str() : nullptr);
 	curl_easy_setopt(CurlC, CURLOPT_ACCEPT_ENCODING, ""); // empty string = all supported encodings
+
+	// This is useful if you're struggling with weird connections and proxies
+	// curl_easy_setopt(CurlC, CURLOPT_VERBOSE, (long) 1);
 
 	// libcurl makes no attempt to detect if the hostname is a loopback one such as localhost or 127.0.0.1. If http_proxy
 	// is set, then it will attempt to use that, even for loopback addresses. That is why we need to take the pains here
@@ -727,11 +740,12 @@ void Connection::Perform(const Request& request, Response& response) {
 	case CURLE_OK: response.Err = Error(); break;
 	case CURLE_COULDNT_RESOLVE_PROXY: response.Err = ErrResolveProxyFailed; break;
 	case CURLE_COULDNT_RESOLVE_HOST: response.Err = ErrResolveHostFailed; break;
-	case CURLE_COULDNT_CONNECT: response.Err = ErrConnectedFailed; break;
+	case CURLE_COULDNT_CONNECT: response.Err = ErrConnectionFailed; break;
 	case CURLE_OPERATION_TIMEDOUT: response.Err = ErrTimeout; break;
 	case CURLE_TOO_MANY_REDIRECTS: response.Err = ErrTooManyRedirects; break;
+	case CURLE_SSL_CACERT: response.Err = Error::Fmt("Invalid CA certificate for HTTPS"); break;
 	default:
-		response.Err = Error(tsf::fmt("libcurl error %v", res));
+		response.Err = Error::Fmt("libcurl error %v", res);
 		break;
 	}
 

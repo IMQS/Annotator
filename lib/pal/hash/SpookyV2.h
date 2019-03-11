@@ -1,3 +1,4 @@
+#pragma once
 // clang-format off
 //
 // SpookyHash: a 128-bit noncryptographic hash function

@@ -18,6 +18,11 @@ extern IMQS_PAL_API StaticError ErrEINVAL;  // Invalid input value to function
 extern IMQS_PAL_API StaticError ErrEMFILE;
 extern IMQS_PAL_API StaticError ErrENOENT; // Not found
 
+enum class OS {
+	Windows,
+	Linux,
+};
+
 struct FileAttributes {
 	imqs::time::Time TimeCreate; // Creation time
 	imqs::time::Time TimeModify; // Last modification time
@@ -89,6 +94,7 @@ If the directory does not exist, then the function returns an error.
 */
 IMQS_PAL_API Error FindFiles(const std::string& dir, std::function<bool(const FindFileItem& item)> callback);
 
+IMQS_PAL_API OS          GetOS();
 IMQS_PAL_API bool        CmdLineHasOption(int argc, char** argv, const char* option); // Returns true if -option or --option exists on the command-line
 IMQS_PAL_API const char* CmdLineGetOption(int argc, char** argv, const char* option); // Get value of the form "option value". Returns value or null. Typically "--option value".
 IMQS_PAL_API int         NumberOfCPUCores();
@@ -105,6 +111,9 @@ IMQS_PAL_API std::string FindInSystemPath(const std::string& filename);         
 IMQS_PAL_API std::string ExecutableExtension();                                  // ".exe" on windows, and "" on other platforms
 IMQS_PAL_API std::string SharedLibraryExtension();                               // ".dll" on windows, and ".so" on other platforms
 IMQS_PAL_API void        TraceStr(const char* str);                              // Trace to OutputDebugString, or puts(stdout) on linux
+
+inline bool IsWindows() { return GetOS() == OS::Windows; }
+inline bool IsLinux() { return GetOS() == OS::Linux; }
 
 // Write to OutputDebugString, or stdout on linux
 template <typename... Args>

@@ -1,6 +1,7 @@
 #pragma once
 #ifdef _WIN32
 
+#include <functional>
 #include <WinSvc.h>
 
 namespace imqs {
@@ -63,6 +64,10 @@ public:
 	DWORD(WINAPI* SvcCtrlHandler)
 	(DWORD dwCtrl, DWORD dwEventType, LPVOID lpEventData, LPVOID lpContext);
 
+	// A callback function that is invoked when the service is stopped. This can be
+	// used in addition to SvcStopEvent, to detect when the service receives the stop signal from the OS.
+	std::function<void()> OnStop;
+
 	nstring               SvcName;         // You can leave this blank for a SERVICE_WIN32_OWN_PROCESS
 	SERVICE_STATUS_HANDLE SvcStatusHandle; // Populated by SvcMain_Start(). ReportSvcStatus uses this to inform the OS of the state of the service.
 
@@ -99,10 +104,11 @@ protected:
 	DWORD StatusCheckPoint;
 	bool  OwnSvcStopEvent;
 	void  ResetStatus();
+	void  SetStopped();
 
 	static BOOL WINAPI ConsoleHandler(DWORD CtrlType);
 };
-}
-}
+} // namespace os
+} // namespace imqs
 
 #endif // _WIN32

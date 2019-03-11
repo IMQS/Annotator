@@ -119,6 +119,7 @@ public:
 	size_t      Format8601(char* buf, int timezone_offset_minutes = 0) const;
 	std::string Format8601(int timezone_offset_minutes = 0) const;
 	Error       Parse8601(const char* str, size_t len); // Parse ISO 8601 time (2013-10-11T22:14:15.003123Z)
+	Error       Parse8601(const std::string& str);      // Parse ISO 8601 time (2013-10-11T22:14:15.003123Z)
 	void        FormatHttp(char* buf) const;            // Buf must be at least 30 characters (29 + null terminator).
 	std::string FormatHttp() const;
 	Error       ParseHttp(const char* str, size_t len); // Parse HTTP time (Sun, 06 Nov 1994 08:49:37 GMT)

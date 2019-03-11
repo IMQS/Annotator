@@ -449,6 +449,14 @@ Error Time::Parse8601(const char* str, size_t len) {
 	double s = 0.0;
 
 	int numParsed = sscanf(str, "%d-%d-%dT%d:%d:%lf%d:%dZ", &year, &month, &day, &h, &m, &s, &tzh, &tzm);
+	if (numParsed < 4 && len > 11 && str[10] == ' ') {
+		// try without the T (YYYY-MM-DD hh:mm:ss)
+		numParsed = sscanf(str, "%d-%d-%d %d:%d:%lf%d:%dZ", &year, &month, &day, &h, &m, &s, &tzh, &tzm);
+	}
+	if (numParsed < 3) {
+		// try colons in the date (YYYY:MM:DD hh:mm:ss)
+		numParsed = sscanf(str, "%d:%d:%d %d:%d:%lf%d:%dZ", &year, &month, &day, &h, &m, &s, &tzh, &tzm);
+	}
 	if (numParsed < 3)
 		return Err8601DateParse;
 
@@ -484,6 +492,10 @@ Error Time::Parse8601(const char* str, size_t len) {
 	*this     = Time(year, (time::Month) month, day, h, m, static_cast<int>(intpart), static_cast<int>(round(fractpart * 1000000000)));
 	*this -= (tzh * 60 + tzm) * Minute;
 	return Error();
+}
+
+Error Time::Parse8601(const std::string& str) {
+	return Parse8601(str.c_str(), str.size());
 }
 
 void Time::FormatHttp(char* buf) const {

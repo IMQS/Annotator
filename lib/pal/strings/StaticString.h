@@ -8,19 +8,32 @@ namespace imqs {
 // A small string built for one purpose only:
 // We want to have a hash table like this
 //   ohash::map<StaticString, Y>
-// And we want to be able to perform lookups on it using "const char*", for example
-//   map.get("a_constant");
-// StaticString allows us to do that, because Z is a public member variable.
+// And we want to be able to perform lookups on it using "const char*"
+// StaticString allows us to do that, because Z is a public member variable, so you
+// can mess with the internals.
+//
+// Example:
+//   ohash::map<StaticString, int> map;
+//   map.insert("foo", 1);
+//
+//   // perform lookup without doing any string alloc or copy
+//   StaticString ss;
+//   ss.Z = a_const_char_string_pointer;
+//   int val = map.get(ss);
+//   ss.Z = nullptr;
+
 class IMQS_PAL_API StaticString {
 public:
 	char* Z = nullptr;
 
 	StaticString() {}
 	StaticString(const StaticString& s);
+	StaticString(StaticString&& s);
 	StaticString(const std::string& s);
 	StaticString(const char* s);
 	~StaticString();
 
+	StaticString& operator=(StaticString&& s);
 	StaticString& operator=(const StaticString& s);
 	StaticString& operator=(const std::string& s);
 	StaticString& operator=(const char* s);

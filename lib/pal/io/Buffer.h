@@ -21,6 +21,7 @@ public:
 	void     Add(const void* buf, size_t bytes);
 	void     AddStr(const char* str, size_t len = -1);
 	void     Ensure(size_t additionalBytes);        // If necessary, grow to accommodate an additional number of bytes
+	void     WriteNull(size_t len);                 // Increase capacity and length, but do not fill new data with anything specific (just take whatever malloc gives us)
 	size_t   Remain() const { return Cap - Len; }   // Number of bytes available in buffer
 	uint8_t* WritePos() const { return Buf + Len; } // Write position
 

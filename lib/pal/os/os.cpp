@@ -593,6 +593,14 @@ IMQS_PAL_API Error FindFiles(const std::string& _dir, std::function<bool(const F
 #endif
 }
 
+IMQS_PAL_API OS GetOS() {
+#ifdef _WIN32
+	return OS::Windows;
+#else
+	return OS::Linux;
+#endif
+}
+
 IMQS_PAL_API bool CmdLineHasOption(int argc, char** argv, const char* option) {
 	for (int i = 1; i < argc; i++) {
 		if (strcmp(argv[i], option) == 0)

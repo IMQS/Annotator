@@ -8,6 +8,10 @@ StaticString::StaticString(const StaticString& s) {
 	*this = s;
 }
 
+StaticString::StaticString(StaticString&& s) {
+	*this = std::move(s);
+}
+
 StaticString::StaticString(const std::string& s) {
 	*this = s;
 }
@@ -18,6 +22,16 @@ StaticString::StaticString(const char* s) {
 
 StaticString::~StaticString() {
 	free(Z);
+}
+
+StaticString& StaticString::operator=(StaticString&& s) {
+	if (this != &s) {
+		if (Z)
+			free(Z);
+		Z   = s.Z;
+		s.Z = nullptr;
+	}
+	return *this;
 }
 
 StaticString& StaticString::operator=(const StaticString& s) {

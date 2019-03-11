@@ -10,6 +10,7 @@
 
 #include "aligned_alloc.h"
 #include "algo/BinarySearch.h"
+#include "algo/Diff.h"
 #include "archive/zip.h"
 #include "crypto/Rand.h"
 #include "compress/lz4.h"
@@ -22,6 +23,7 @@
 #include "encoding/csv.h"
 #include "encoding/json.h"
 #include "encoding/xml.h"
+#include "encoding/JsonSchemas.h"
 #include "geom/geom2d.h"
 #include "geom/geomNd.h"
 #include "geom/BBox2.h"
@@ -33,6 +35,7 @@
 #include "hash/FNV1a.h"
 #include "hash/Sig16.h"
 #include "hash/SpookyV2.h"
+#include "hash/Wrappers.h"
 #include "net/HttpClient.h"
 #include "net/url.h"
 #include "io/Buffer.h"

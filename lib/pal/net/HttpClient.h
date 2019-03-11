@@ -74,6 +74,7 @@ IMQS_PAL_API const char* StatusAndMessage(Status code);
 IMQS_PAL_API bool        IsValidStatus(int code);
 IMQS_PAL_API void        Initialize();
 IMQS_PAL_API void        Shutdown();
+IMQS_PAL_API void        SetDefaultCACertFile(std::string defaultCACertFile);
 
 struct IMQS_PAL_API HeaderItem {
 	std::string Key;
@@ -152,8 +153,8 @@ inline CacheDesignation operator|(CacheDesignation a, CacheDesignation b) { retu
 class IMQS_PAL_API      Response {
 public:
     std::vector<HeaderItem> Headers; // Headers[0].Value is status line
-    std::string             Body;
-    Error                   Err;
+    std::string             Body;    // Response body
+    Error                   Err;     // Transport error (from libcurl). See also ToError(), which is more generic than this.
 
     Response();
     ~Response();
@@ -180,7 +181,7 @@ public:
     bool        FirstSetCookie(const std::string& name, Cookie& cookie) const;
 
     bool  Is200() const { return StatusCodeInt() == (int) Status::Status200_OK; }
-    Error ToError() const;
+    Error ToError() const; // If 2xx, then return Error(). Else, if !Err.OK(), then return Err. Else, return error from status code and body.
 };
 
 // Static HTTP client functions

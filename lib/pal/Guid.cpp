@@ -38,16 +38,9 @@ Guid Guid::InternalCreate(bool secure) {
 }
 
 Guid Guid::FromString(const char* buf) {
-	Guid           g;
-	unsigned short v[8];
-	int            cv = sscanf(buf, "%08X-%04hX-%04hX-%02hX%02hX-%02hX%02hX%02hX%02hX%02hX%02hX",
-                    &g.MS.Data1, &g.MS.Data2, &g.MS.Data3,
-                    &v[0], &v[1], &v[2], &v[3],
-                    &v[4], &v[5], &v[6], &v[7]);
-	if (cv != 11)
+	Guid g;
+	if (!g.ParseString(buf))
 		return ZeroGuid;
-	for (int i = 0; i < 8; i++)
-		g.MS.Data4[i] = (unsigned char) v[i];
 	return g;
 }
 
@@ -72,6 +65,19 @@ std::string Guid::ToString() const {
 	char buf[37];
 	ToString(buf);
 	return buf;
+}
+
+bool Guid::ParseString(const char* buf) {
+	unsigned short v[8];
+	int            cv = sscanf(buf, "%08X-%04hX-%04hX-%02hX%02hX-%02hX%02hX%02hX%02hX%02hX%02hX",
+                    &MS.Data1, &MS.Data2, &MS.Data3,
+                    &v[0], &v[1], &v[2], &v[3],
+                    &v[4], &v[5], &v[6], &v[7]);
+	if (cv != 11)
+		return false;
+	for (int i = 0; i < 8; i++)
+		MS.Data4[i] = (unsigned char) v[i];
+	return true;
 }
 
 bool Guid::operator==(const Guid& b) const {

@@ -95,10 +95,26 @@ IMQS_PAL_API uint8_t FromHex8(char c) {
 	if (c >= '0' && c <= '9')
 		return c - '0';
 	if (c >= 'a' && c <= 'f')
-		return c - 'a';
+		return 10 + c - 'a';
 	if (c >= 'A' && c <= 'F')
-		return c - 'A';
+		return 10 + c - 'A';
 	return 0;
+}
+
+IMQS_PAL_API uint8_t FromHexPair(const char* s) {
+	return (FromHex8(s[0]) << 4) | FromHex8(s[1]);
+}
+
+IMQS_PAL_API std::string FromHex(const char* s, size_t len) {
+	if (len == -1)
+		len = strlen(s);
+	std::string r;
+	r.resize(len / 2);
+
+	for (size_t i = 0; i < r.size(); i++, s += 2) {
+		r[i] = (char) FromHexPair(s);
+	}
+	return r;
 }
 
 IMQS_PAL_API uint32_t FromHex32(const char* s, size_t len) {

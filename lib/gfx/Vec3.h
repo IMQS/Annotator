@@ -31,14 +31,11 @@ public:
 		return x != b.x || y != b.y || z != b.z;
 	}
 
-#if defined(_MSC_VER)
-	// Last time I checked (May 2018), MSVC only supported the x,y version
 	T size() const { return sqrt(x * x + y * y + z * z); }
 	T rsize() const { return ((T) 1) / sqrt(x * x + y * y + z * z); }
-#else
-	T size() const { return std::hypot(x, y, z); }
-	T rsize() const { return ((T) 1) / std::hypot(x, y, z); }
-#endif
+	// Last time I checked (November 2018), neither clang's libc++ nor MSVC had std::hypot for 3 parameters
+	// T size() const { return std::hypot(x, y, z); }
+	// T rsize() const { return ((T) 1) / std::hypot(x, y, z); }
 
 	T dot(Vec3Base b) const {
 		return x * b.x + y * b.y + z * b.z;

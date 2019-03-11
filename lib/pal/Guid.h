@@ -38,6 +38,8 @@ public:
 	// Writes 36 characters in the form FE154985-8F0D-4E32-8E2A-853521ACDBEC.
 	std::string ToString() const;
 
+	bool ParseString(const char* buf); // Parses the 36 character format FE154985-8F0D-4E32-8E2A-853521ACDBEC
+
 	bool operator==(const Guid& b) const;
 	bool operator!=(const Guid& b) const;
 	bool operator<(const Guid& b) const;

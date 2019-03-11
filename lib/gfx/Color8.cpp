@@ -70,6 +70,10 @@ void Color8::ToHSVA(const Vec4f& rgba, Vec4f& hsva) {
 	hsva.w = rgba.w;
 }
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 6031) // warning C6031: Return value ignored: 'snprintf'.
+#endif
 std::string Color8::ToCSS() const {
 	char buf[64];
 	if (a == 255) {
@@ -83,6 +87,9 @@ std::string Color8::ToCSS() const {
 	}
 	return buf;
 }
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 Color8 Color8::FromFloat(float r, float g, float b, float a) {
 	r          = math::Clamp(r, 0.0f, 1.0f);

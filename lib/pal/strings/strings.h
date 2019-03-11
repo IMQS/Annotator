@@ -14,7 +14,7 @@ namespace strings {
 IMQS_PAL_API void ToHex(uint8_t val, char* out);                 // Does not add a null terminator
 IMQS_PAL_API void ToHex(const void* buf, size_t len, char* out); // Always adds a null terminator, so length of 'out' must be len * 2 + 1
 IMQS_PAL_API std::string ToHex(const void* buf, size_t len);
-
+IMQS_PAL_API std::string FromHex(const char* s, size_t len);
 IMQS_PAL_API uint8_t FromHex8(char c);                           // Convert one hex character to an integer
 IMQS_PAL_API uint32_t FromHex32(const char* s, size_t len = -1); // Convert two characters at a time, starting at the front of the string.
 

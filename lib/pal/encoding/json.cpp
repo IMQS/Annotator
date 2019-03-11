@@ -6,6 +6,8 @@ namespace imqs {
 #ifndef IMQS_PAL_DISABLE_RAPIDJSON
 namespace rj {
 
+static rapidjson::Value NullValue;
+
 IMQS_PAL_API Error ParseString(const char* str, size_t len, rapidjson::Document& doc) {
 	if (len == -1)
 		doc.Parse(str);
@@ -100,10 +102,33 @@ IMQS_PAL_API int GetInt(const rapidjson::Value& v, const char* key, int defaultV
 		return defaultValue;
 }
 
+IMQS_PAL_API int GetAnyAsInt(const rapidjson::Value& v, const char* key, int defaultValue) {
+	auto iter = v.FindMember(key);
+	if (iter == v.MemberEnd())
+		return defaultValue;
+
+	if (iter->value.IsInt())
+		return iter->value.GetInt();
+	else if (iter->value.IsNumber())
+		return (int) iter->value.GetDouble();
+	else if (iter->value.IsString())
+		return atoi(iter->value.GetString());
+	else
+		return defaultValue;
+}
+
 IMQS_PAL_API int64_t GetInt64(const rapidjson::Value& v, const char* key, int64_t defaultValue) {
 	auto iter = v.FindMember(key);
 	if (iter != v.MemberEnd() && iter->value.IsNumber())
 		return iter->value.GetInt64();
+	else
+		return defaultValue;
+}
+
+IMQS_PAL_API double GetDouble(const rapidjson::Value& v, const char* key, double defaultValue) {
+	auto iter = v.FindMember(key);
+	if (iter != v.MemberEnd() && iter->value.IsNumber())
+		return iter->value.GetDouble();
 	else
 		return defaultValue;
 }
@@ -114,6 +139,40 @@ IMQS_PAL_API std::string GetString(const rapidjson::Value& v, const char* key, s
 		return iter->value.GetString();
 	else
 		return defaultValue;
+}
+
+IMQS_PAL_API const rapidjson::Value& GetObject(const rapidjson::Value& v, const char* key) {
+	auto it = v.FindMember(key);
+	if (it == v.MemberEnd() || !it->value.IsObject())
+		return NullValue;
+	return it->value;
+}
+
+IMQS_PAL_API const rapidjson::Value& GetArray(const rapidjson::Value& v, const char* key) {
+	auto it = v.FindMember(key);
+	if (it == v.MemberEnd() || !it->value.IsArray())
+		return NullValue;
+	return it->value;
+}
+
+IMQS_PAL_API bool Bool(const rapidjson::Value& v, bool defaultValue) {
+	return v.IsBool() ? v.GetBool() : defaultValue;
+}
+
+IMQS_PAL_API int Int(const rapidjson::Value& v, int defaultValue) {
+	return v.IsNumber() ? v.GetInt() : defaultValue;
+}
+
+IMQS_PAL_API int64_t Int64(const rapidjson::Value& v, int64_t defaultValue) {
+	return v.IsNumber() ? v.GetInt64() : defaultValue;
+}
+
+IMQS_PAL_API double Double(const rapidjson::Value& v, double defaultValue) {
+	return v.IsNumber() ? v.GetDouble() : defaultValue;
+}
+
+IMQS_PAL_API std::string String(const rapidjson::Value& v, std::string defaultValue) {
+	return v.IsString() ? v.GetString() : defaultValue;
 }
 
 IMQS_PAL_API std::vector<std::string> Keys(const rapidjson::Value& v) {
@@ -163,6 +222,8 @@ IMQS_PAL_API bool InOut(bool out, rapidjson::Document& doc, rapidjson::Value& v,
 #endif
 
 namespace nj {
+static nlohmann::json NullValue;
+
 IMQS_PAL_API Error ParseString(const std::string& raw, nlohmann::json& doc) {
 	try {
 		doc = nlohmann::json::parse(raw.begin(), raw.end());
@@ -207,6 +268,21 @@ IMQS_PAL_API int GetInt(const nlohmann::json& v, const char* key, int defaultVal
 	return defaultValue;
 }
 
+IMQS_PAL_API int GetAnyAsInt(const nlohmann::json& v, const char* key, int defaultValue) {
+	auto it = v.find(key);
+	if (it == v.end())
+		return defaultValue;
+
+	if (it->is_number_integer())
+		return it->get<int>();
+	else if (it->is_number())
+		return (int) it->get<double>();
+	else if (it->is_string())
+		return atoi(it->get<std::string>().c_str());
+	else
+		return defaultValue;
+}
+
 IMQS_PAL_API int64_t GetInt64(const nlohmann::json& v, const char* key, int64_t defaultValue) {
 	auto it = v.find(key);
 	if (it != v.end() && it->is_number_integer())
@@ -233,6 +309,45 @@ IMQS_PAL_API std::vector<std::string> GetStringList(const nlohmann::json& v, con
 		return res;
 	}
 	return {};
+}
+
+IMQS_PAL_API const nlohmann::json& GetArray(const nlohmann::json& v, const char* key) {
+	const auto& el = v.find(key);
+	if (el != v.end() && el->is_array())
+		return *el;
+	return NullValue;
+}
+
+IMQS_PAL_API const nlohmann::json& GetObject(const nlohmann::json& v, const char* key) {
+	const auto& el = v.find(key);
+	if (el != v.end() && el->is_object())
+		return *el;
+	return NullValue;
+}
+
+IMQS_PAL_API bool IsArray(const nlohmann::json& v, const char* key) {
+	auto it = v.find(key);
+	return it != v.end() && it->is_array();
+}
+
+IMQS_PAL_API bool IsObject(const nlohmann::json& v, const char* key) {
+	auto it = v.find(key);
+	return it != v.end() && it->is_object();
+}
+
+IMQS_PAL_API bool IsString(const nlohmann::json& v, const char* key) {
+	auto it = v.find(key);
+	return it != v.end() && it->is_string();
+}
+
+IMQS_PAL_API bool IsNumber(const nlohmann::json& v, const char* key) {
+	auto it = v.find(key);
+	return it != v.end() && it->is_number();
+}
+
+IMQS_PAL_API bool IsBool(const nlohmann::json& v, const char* key) {
+	auto it = v.find(key);
+	return it != v.end() && it->is_boolean();
 }
 
 } // namespace nj

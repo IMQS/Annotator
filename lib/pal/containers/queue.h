@@ -68,7 +68,7 @@ private:
 template <typename T>
 class TQueue {
 public:
-	TQueue() { Q.Initialize(false, sizeof(T)); }
+	TQueue(bool useSemaphore = false) { Q.Initialize(useSemaphore, sizeof(T)); }
 	void Initialize(bool useSemaphore) { Q.Initialize(useSemaphore, sizeof(T)); }
 	void Push(const T& item) { Q.Push(&item); }
 	bool PopTail(T& item) { return Q.PopTail(&item); }
