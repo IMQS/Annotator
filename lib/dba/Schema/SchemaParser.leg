@@ -1,0 +1,154 @@
+
+# Notes:
+# The following construct didn't work:
+#   (PKEY? INDEX*) | (INDEX* PKEY?)
+#   It would fail to detect a missing semicolon at the end of a table. I don't understand why.
+
+ROOT				=							{ success(yy); }
+	WS
+	(VERSION WS)?
+	(TABLE | SUFFIXTABLES)+
+	!.
+
+VERSION				= "VERSION" -
+	INT											{ version(yy, yytext); }
+	WS
+
+TABLE				= "CREATE" - "TABLE" -		{ begin_table(yy); }
+	QUOTED										{ WRITEX(yy->cTable->FriendlyName); }
+	IDTAB										{ table_name(yy, yytext); }
+	INHERIT?
+	WS
+	OPENC
+	((GROUP | FIELD | NETLINK | NETNODE | HASMANY | HASONE | TABLEFLAGS) WS)*
+	CLOSEC
+	(PKEY? INDEX*)
+	SEMICOLON
+	WS
+
+SUFFIXTABLES		= "CREATE" - "SUFFIX" - "TABLES" WS			{ suffix_table_start(yy); }
+	OPENC
+	(IDTAB_WS						{ add_suffix_table_original(yy, yytext); }
+	 COMMA)*
+	IDTAB_WS						{ add_suffix_table_original(yy, yytext); }
+	SEMICOLON WS
+	COMMENT_OR_EOL*
+	(IDSUFFIX_WS					{ add_suffix_table_clone(yy, yytext); }
+	 COMMA)*
+	IDSUFFIX_WS						{ add_suffix_table_clone(yy, yytext); }
+	SEMICOLON WS
+	COMMENT_OR_EOL*
+	CLOSEC
+	SEMICOLON
+	WS
+
+INHERIT				=
+	COLON
+	IDTAB							{ WRITEX(yy->cTable->InheritedFrom); }
+
+PKEY				=
+	"PRIMARY" - "KEY" - OPENP -		{ begin_index(yy); }
+	(IDFIELD						{ add_to_index(yy, yytext); }
+	 COMMA)*
+	IDFIELD							{ add_to_index(yy, yytext); }
+	CLOSEP							{ done_pk(yy); }
+
+INDEX				= -
+	( "UNIQUE" - "INDEX"			{ begin_index(yy); yy->cIndex->IsUnique = true; }
+	| "INDEX"						{ begin_index(yy); }
+	) -
+	( IDTAB OPENP					{ yy->cIndex->Name = yytext; }
+	| OPENP
+	)
+	(IDFIELD						{ add_to_index(yy, yytext); }
+	 COMMA)*
+	IDFIELD							{ add_to_index(yy, yytext); }
+	CLOSEP							{ done_index(yy); }
+
+FIELD				= -				{ begin_field(yy); }
+	FIELD_REQ						{ if (strcmp(yytext,"required") == 0) yy->cField->Flags |= TypeFlags::NotNull; }
+	FIELD_TYPE						{ parse_type(yy, yytext, yy->cField); }
+	FIELD_WIDTH?					{ yy->cField->Width = atoi(yytext); }
+	IDFIELD							{ WRITEX(yy->cField->Name); }
+	QUOTED							{ WRITEX(yy->cField->FriendlyName); }
+	FIELD_XDATA*
+	COMMENT_OR_EOL
+
+GROUP				= -
+	QUOTED							{ begin_group(yy, yytext); }
+	COMMENT_OR_EOL
+
+NETLINK				= - "netlink" -
+	QUOTED							{ if (yy->cTable->Network != "" ) SetError(yy, tsf::fmt("Only one network per table '%s'", yy->cTable->GetName()));
+									  else						      WRITEX(yy->cTable->Network); }
+	IDFIELD							{ WRITEX(yy->cTable->NetworkLinkA); }
+	IDFIELD							{ WRITEX(yy->cTable->NetworkLinkB); }
+	COMMENT_OR_EOL
+
+NETNODE				= - "netnode" -
+	QUOTED							{ WRITEX(yy->cTable->Network); }
+	IDFIELD							{ WRITEX(yy->cTable->NetworkNode); }
+	COMMENT_OR_EOL
+
+HASMANY				= - "hasmany" -
+	WORD							{ begin_hasmany(yy, yytext); }
+	RELATION_HAS_X
+
+HASONE				= - "hasone" -
+	WORD							{ begin_hasone(yy, yytext); }
+	RELATION_HAS_X
+
+RELATION_HAS_X		=
+	IDFIELD							{ relation_local_field(yy, yytext); }
+	IDTAB							{ relation_foreign_field(yy, yytext); }
+	RELATION_XDATA*
+	COMMENT_OR_EOL
+
+TABLEFLAGS			= - "flags" -
+	(IDFIELD						{ table_flags(yy, yytext); }
+	 COMMA)*
+	IDFIELD							{ table_flags(yy, yytext); }
+	COMMENT_OR_EOL
+
+FIELD_XDATA			=
+	IDTAB							{ field_xdata_key(yy, yytext); }
+	':'
+	XDATAVALUE						{ field_xdata_value(yy, yytext); }
+
+RELATION_XDATA		=
+	IDTAB							{ relation_xdata_key(yy, yytext); }
+	':'
+	XDATAVALUE						{ relation_xdata_value(yy, yytext); }
+
+
+-				= [ \t]*
+EOL				= '\n' | '\r\n' | '\r'
+WS_CHAR			= ' ' | '\t' | '\n' | '\r\n' | '\r'
+WS				= (WS_CHAR | COMMENT)*
+FIELD_REQ		= < ('optional' | 'required') > -
+QUOTED			= '"' < [^"]* > '"' -
+
+# IDTAB and IDFIELD must allow dots inside them for relationship specifications
+# Additionally, due to us allowing fields such as "3Phase" inside electricity
+# tables, we need to support a number as the first character of a field. Perhaps
+# we should rename those fields.
+
+IDTAB			=    < [a-zA-Z_][a-zA-Z_0-9.]* > -
+IDTAB_WS		= WS < [a-zA-Z_][a-zA-Z_0-9.]* > WS
+IDSUFFIX_WS		= WS < [a-zA-Z_0-9.]* > WS
+IDFIELD			= < [a-zA-Z_0-9][a-zA-Z_0-9.]* > -
+WORD			= < (!WS_CHAR .)+ > -
+
+XDATAVALUE		= < (!WS_CHAR .)+ > -
+INT				= < [0-9]+ > -
+FIELD_TYPE		= < [a-z][a-z0-9]* > -
+FIELD_WIDTH		= OPENP - INT - CLOSEP -
+OPENC			= - '{' WS
+CLOSEC			= - '}' WS
+OPENP			= '(' WS
+CLOSEP			= ')' WS
+SEMICOLON		= ';' -
+COMMA			= ',' -
+COLON			= ':' -
+COMMENT			= '#' ( !EOL . )* EOL
+COMMENT_OR_EOL	= COMMENT | EOL

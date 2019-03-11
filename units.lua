@@ -74,6 +74,17 @@ local crtStatic = ExternalLibrary {
 	},
 }
 
+local staticAnalysis = ExternalLibrary {
+	Name = "staticAnalysis",
+	Propagate = {
+		Env = {
+			CXXOPTS = {
+				{ "/analyze"; Config = "win*-*-*-analyze" },
+			},
+		},
+	},
+}
+
 -- Swapping this out will change linkage to use MSVCR120.dll and its cousins,
 -- instead of statically linking to the required MSVC runtime libraries.
 -- I don't understand why, but if we build with crtStatic, then tests fail
@@ -151,6 +162,8 @@ local unicode = ExternalLibrary {
 }
 
 local vcpkg_bin = "third_party/vcpkg/installed/x64-windows/"
+
+local deploy_sqlite = copyfile_to_output(vcpkg_bin .. "bin/sqlite3.dll", winFilter)
 
 local deploy_libcurl_debug = copyfile_to_output(vcpkg_bin .. "debug/bin/libcurl-d.dll", winDebugFilter)
 local deploy_libcurl_release = copyfile_to_output(vcpkg_bin .. "bin/libcurl.dll", winReleaseFilter)
@@ -501,6 +514,16 @@ local glfw = ExternalLibrary {
 	}
 }
 
+local tlsf = StaticLibrary {
+	Name = "tlsf",
+	Depends = { winCrt, },
+	Sources = {
+		"third_party/tlsf/tlsf.c",
+		"third_party/tlsf/tlsf.h",
+	},
+	IdeGenerationHints = ideHintThirdParty,
+}
+
 local tsf = StaticLibrary {
 	Name = "tsf",
 	Depends = { winCrt, },
@@ -651,6 +674,32 @@ local xo = SharedLibrary {
 	},
 }
 
+-- Return an FGlob node that has the standard IMQS filters applied
+local function makeImqsGlob(dir, options)
+	local filters = {
+		{ Pattern = "_windows"; Config = winFilter },
+		{ Pattern = "_linux"; Config = linuxFilter },
+		{ Pattern = "[/\\]_[^/\\]*$"; Config = "ignore" },
+	}
+	if options.Ignore ~= nil then
+		for _, ignore in ipairs(options.Ignore) do
+			filters[#filters + 1] = { Pattern = ignore; Config = "ignore" }
+		end
+	end
+
+	local recursive = true
+	if options.Recursive ~= nil then
+		recursive = options.Recursive
+	end
+
+	return FGlob {
+		Dir = dir,
+		Extensions = { ".c", ".cpp", ".h" },
+		Filters = filters,
+		Recursive = recursive,
+	}
+end
+
 local uberlogger = Program {
 	Name = "uberlogger",
 	Depends = { winCrt, linuxCrt },
@@ -769,6 +818,26 @@ local pal = SharedLibrary {
 	IdeGenerationHints = ideHintLibrary,
 }
 
+local projwrap = SharedLibrary {
+	Name = "projwrap",
+	Depends = { staticAnalysis, winCrt, pal, tsf },
+	PrecompiledHeader = {
+		Source = "lib/projwrap/pch.cpp",
+		Header = "pch.h",
+		Pass = "PchGen",
+	},
+	Defines = {
+		"IMQS_PROJWRAP_EXCLUDE_GDAL"
+	},
+	Includes = {
+		"lib/projwrap",
+	},
+	Sources = {
+		makeImqsGlob("lib/projwrap", {})
+	},
+	IdeGenerationHints = ideHintLibrary,
+}
+
 local gfx = StaticLibrary {
 	Name = "gfx",
 	Depends = { winCrt, pal, libjpeg_turbo, png, stb },
@@ -810,6 +879,37 @@ local CUDA = ExternalLibrary {
 			{ "cuda.lib", "cudart.lib", "nvcuvid.lib"; Config = winFilter },
 		},	
 	}	
+}
+
+local dba = SharedLibrary {
+	Name = "dba",
+	Depends = { staticAnalysis, winCrt, pal, tlsf, utfz, tsf, deploy_sqlite, projwrap },
+	Libs = {
+		-- version.lib is needed by SQLAPI
+		{ "libpq.lib", "x64-windows/lib/sqlite3.lib", "Ws2_32.lib", "Secur32.lib", "version.lib"; Config = winFilter },
+		{ "pq", "sqlite3"; Config = linuxFilter },
+	},
+	Defines = {
+		"IMQS_DBA_EXCLUDE_SQLAPI"
+	},
+	Env = {
+		-- libpq is linked against the static CRT. We are squashing a linker warning here. A better solution
+		-- might be to build libpq so that it links against the dynamic CRT. We happen to be safe in this case,
+		-- because libpq is good about keeping keeping mallocs and frees to itself.
+		SHLIBOPTS = { "/NODEFAULTLIB:MSVCRT.lib"; Config = winFilter },
+	},
+	PrecompiledHeader = {
+		Source = "lib/dba/pch.cpp",
+		Header = "pch.h",
+		Pass = "PchGen",
+	},
+	Includes = {
+		"lib/dba",
+	},
+	Sources = {
+		makeImqsGlob("lib/dba", { Ignore = {"/Coco/"} }),
+	},
+	IdeGenerationHints = ideHintLibrary,
 }
 
 local Video = SharedLibrary {

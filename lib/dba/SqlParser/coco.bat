@@ -1,0 +1,1 @@
+Coco\Debug\Coco.exe SQLParser.ATG -o Generated

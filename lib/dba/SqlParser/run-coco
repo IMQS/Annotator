@@ -1,0 +1,5 @@
+#!/bin/bash
+pushd ../../../
+./tundra2 coco
+popd
+../../../t2-output/linux-clang-debug-default/coco SQLParser.ATG -o Generated

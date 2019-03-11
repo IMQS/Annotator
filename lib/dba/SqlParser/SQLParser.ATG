@@ -1,0 +1,468 @@
+/*==================================================================================================*/
+/*==================================         Code Section        ===================================*/
+/*==================================================================================================*/
+
+#include <string>
+#include <vector>
+#include <cstddef>
+#include <iostream>
+#include <atomic>
+
+//#if _MSC_VER >= 1400
+//#pragma warning(disable: 4996) // CRT security
+//#endif
+
+namespace imqs
+{
+namespace dba
+{
+
+class SqlStr;
+
+namespace sqlparser
+{
+
+class IMQS_DBA_API AnyType
+{
+public:
+	enum Kinds
+	{
+		Invalid = -1,
+		SQuotedString = 0,
+		DQuotedString = 1,
+		Number = 2,
+		Bool = 3,
+		Null = 4,
+		Hex = 5,
+	};
+	std::string 	StrVal;				// Quotes are stripped from this value.
+	double 			NumberVal = 0;
+	Kinds 			Kind = Invalid;
+	bool			BoolVal = false;
+	
+	AnyType();
+	AnyType(const char* val);
+	AnyType(const wchar_t* val);
+	AnyType(double val);
+	AnyType(bool val);
+	static AnyType MakeNull();
+
+	void 			Print(SqlStr& out) const;
+	bool			IsString() const { return Kind == SQuotedString || Kind == DQuotedString; }
+	bool			IsNumber() const { return Kind == Number; }
+	bool			IsBool() const { return Kind == Bool; }
+	bool			IsHex() const { return Kind == Hex; }
+	bool			IsNull() const { return Kind == Null; }
+};
+	
+/* Abstract Syntax Tree node.
+
+Special rules:
+CASE:
+	Param[0] = 'base'. NullValue if there is no base. Use Case_Base. See https://www.sqlite.org/lang_expr.html for an explanation of the 'base' in a case statement
+	Param[1] = 'else'. NullValue if there is no else. Use Case_Else.
+	Param[2] = 'when' expression of first case block
+	Param[3] = 'then' expression of first case block
+	Param[4] = 'when' expression of second case block
+	Param[5] = 'then' expression of second case block
+	etc
+
+INSERT:
+	Param[0] = Table
+	Param[1] = Fields
+		Param[0] = field1
+		Param[1] = field2
+		...
+	Param[2] = Values (can contain multiple rows, tightly packed, for Postgres multi-row insert statement)
+		Param[0] = value1
+		Param[1] = value2
+		...
+
+PreparedParam:
+	Value.NumberVal holds the 1-based parameter number.
+
+*/
+
+class IMQS_DBA_API SqlAST
+{
+public:
+	enum Types
+	{
+		TypeFunction,		// function (eg sum, average, count)
+		TypeOperator,		// operator (eg <, >, =)
+		TypeVariable,		// column name
+		TypeValue,			// number, string, null,
+		TypeCollection,		// set eg: (1, 2, 3)
+		TypeCase,			// case statement
+		TypeInsert,			// INSERT statement
+		TypeFieldList,		// field list (eg in INSERT statement)
+		TypeValueList,		// value list (eg in INSERT statement VALUES portion)
+		TypePreparedParam,	// Parameter to a prepared statement ($1, $2, etc)
+	};
+	
+	enum PrintFlags
+	{
+		PrintNormal             = 0,
+		PrintExcludeParameters  = 1, // When printing, only call NativeFunc.. do not print parameters
+		PrintAdd4326            = 2, // For geometry, always add an additional parameter "4326" to the function. This is a hack for the MSSQL driver.
+	};
+
+	enum SQLEmitFlags
+	{
+		SQLEmitAsThis	= 1
+	};
+
+	static const char*		SVariable;
+	static const char*		SValue;
+	static const char*		SCollection;
+	static const char*		SCase;
+	static const char*		SInsert;
+	static const char*		SFieldList;
+	static const char*		SValueList;
+	static const char*		SPreparedParam;
+
+	std::atomic<int>		RefCount;		// For use in a cache
+	std::string 			FuncName;
+	std::vector<SqlAST*>	Params;
+	std::string 			Variable;
+	AnyType 				Value;
+	uint32_t				EmitFlags = 0;
+
+	SqlAST();	
+	SqlAST(const wchar_t* funcName);
+	SqlAST(const wchar_t* funcName, const AnyType& val);
+	~SqlAST();
+	
+	void 				Set(const wchar_t* funcName, const AnyType& val);
+	void 				SetFunction(const char* funcName);
+	void 				SetOperator(const char* operatorName);
+	void 				SetVariable(const wchar_t* identifier);
+	void 				SetVariable(const char* identifier);
+	void 				SetValue(const AnyType& value);
+	void 				SetPreparedParam(int paramNumBase1);
+	void 				SetNullValue();
+	void 				AppendFieldToTable(const wchar_t* identifier);
+	void 				Print(SqlStr& out) const;
+	void 				ToJSON(nlohmann::json& out) const;
+	SqlAST*				Clone() const;
+	bool				IsFunction() const;
+	bool				IsOperator() const;
+	bool				IsVariable() const;
+	bool				IsCollection() const;
+	bool				IsCase() const;
+	bool				IsValue() const;
+	bool				IsNumericValue() const;
+	bool				IsStringValue() const;
+	bool				IsHexValue() const;
+	bool				IsBoolValue() const;
+	bool				IsNullValue() const;
+	bool				IsInsert() const;
+	bool				IsFieldList() const;
+	bool				IsValueList() const;
+	bool				IsPreparedParam() const;
+	Types				Type() const;
+
+	size_t				NumInsertParams() const { return Params[1]->Params.size(); }
+
+	enum
+	{
+		Case_Base = 0,
+		Case_Else = 1,
+	};
+private:
+	void PrintParameters(SqlStr& out, size_t startIndex = 0) const;
+};
+
+
+class ObjectGen 
+{
+public:
+	std::vector<SqlAST*>	MemAst;
+
+	ObjectGen();
+	~ObjectGen();
+
+	void					Clear();
+	SqlAST* 				NewAST();
+	SqlAST* 				NewAST(const wchar_t* funcName);
+	SqlAST* 				NewAST(const wchar_t* funcName, const AnyType& val);
+};
+
+// namespace close
+}
+}
+}
+	
+/*==================================================================================================*/
+/*==================================       Compiler Section      ===================================*/
+/*==================================================================================================*/
+
+COMPILER	Statement
+
+	// One can place "-->declarations" in here, but I don't see how that really improves readability
+
+IGNORECASE
+
+CHARACTERS
+	tab                = '\t'. /*  9 = tabulator */
+	lf                 = '\n'. /* 10 = line feed */
+	cr                 = '\r'. /* 13 = carriage return */
+	digit              = "0123456789".
+	letter             = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".
+	sQuoteStringChar   = ANY - "'".
+	dQuoteStringChar   = ANY - '"' - '\\' - cr - lf.
+	bracketIdentChar   = ANY - "[" - '\\' - cr - lf - "]".
+	hexChar            = "0123456789ABCDEFabcdef".
+
+TOKENS
+	floatnumber        = ['-']digit{digit}['.'digit{digit}].
+	varname            = (letter | '_') {letter | '_' | digit}.
+	stringl            = "\'" {(sQuoteStringChar | "\'\'")} "\'" | "\"" {dQuoteStringChar} "\"".
+	bracketIdent       = "[" (letter | '_') {bracketIdentChar} "]" .
+	psParam            = '$'digit{digit}.
+	hexlit             =  "0x" { hexChar }.
+
+
+IGNORE lf + cr + tab
+
+PRODUCTIONS
+
+Statement<SqlAST*& exp> =
+(
+	"INSERT" "INTO" InsertStmt<exp>
+	|
+	"DUMMY_WHERE" Expression<exp>
+).
+
+InsertStmt<SqlAST*& exp> =							(. exp = gen->NewAST(L"__INSERT");
+														exp->Params.resize(3);
+														SqlAST* fields = gen->NewAST(L"__FIELDS");
+														SqlAST* values = gen->NewAST(L"__VALUES");
+														exp->Params[1] = fields;
+														exp->Params[2] = values; .)
+(													(. SqlAST* table = gen->NewAST(L""); .)
+	Ident<table>									(. exp->Params[0] = table; .)
+	"("												(. SqlAST* field1 = gen->NewAST(); .)
+		Ident<field1>								(. exp->Params[1]->Params.push_back(field1); .)
+		{											
+			","										(. SqlAST* field = gen->NewAST(); .)
+			Ident<field>							(. exp->Params[1]->Params.push_back(field); .)
+		}
+	")"
+	"VALUES"
+	ValuesRow<values>
+	{
+		","
+		ValuesRow<values>
+	}
+).
+
+ValuesRow<SqlAST*& values> =
+(
+	"("												(. SqlAST* val1 = gen->NewAST(); .)
+		Expression<val1>							(. values->Params.push_back(val1); .)
+		{											
+			","										(. SqlAST* val = gen->NewAST(); .)
+			Expression<val>							(. values->Params.push_back(val); .)
+		}
+	")"
+).
+
+Expression<SqlAST*& exp> =							(. exp = gen->NewAST(L"DUMMY_EXP"); .)
+(													(. SqlAST* and_ast = nullptr; .)
+	AndOp<and_ast> 									(. SqlAST* treebuilder = and_ast; .)
+	{"OR" 											(. SqlAST* and_astright = nullptr; .)
+		AndOp<and_astright>							(. SqlAST* tmpnode = gen->NewAST(L"OR"); tmpnode->Params.push_back(treebuilder); tmpnode->Params.push_back(and_astright); treebuilder = tmpnode; .)
+	} 												(. exp = treebuilder; .)
+	|
+	UnaryOpWeak										(. const wchar_t* funcName = t->val; .)
+													(. SqlAST* exp_right = nullptr; .)
+	Expression<exp_right>							(. exp = gen->NewAST(funcName); exp->Params.push_back(exp_right); .)
+	|
+	"CASE" Case<exp>
+)
+.
+
+AndOp<SqlAST*& and_ast> =   						(. SqlAST* equality_ast = nullptr; .)
+	EqualityOp<equality_ast> 						(. SqlAST* treebuilder = equality_ast; .)
+	{"AND"											(. SqlAST* equality_astright = nullptr; .)
+		EqualityOp<equality_astright>				(. SqlAST* tmpnode = gen->NewAST(L"AND"); tmpnode->Params.push_back(treebuilder); tmpnode->Params.push_back(equality_astright); treebuilder = tmpnode; .)
+	}												(. and_ast = treebuilder; .)
+.
+
+EqualityOp<SqlAST*& equality_ast> = 				(. SqlAST* comp_ast = nullptr; .)
+	ComparisonOp<comp_ast> 							(. equality_ast = comp_ast; SqlAST* treebuilder = comp_ast; .)
+	(												(. const wchar_t* special = nullptr; .)
+		{ ( "=" | "==" | "!=" | "<>" | "LIKE" |
+			"IS" ["NOT" 							(. special = L"IS NOT"; .)
+				]
+			)										(. const wchar_t* funcName = special ? special : t->val; .)
+			(										(. SqlAST* comp_astright = nullptr; .)
+				ComparisonOp<comp_astright> 		(. SqlAST* tmpnode = gen->NewAST(funcName); tmpnode->Params.push_back(treebuilder); tmpnode->Params.push_back(comp_astright); treebuilder = tmpnode; .)
+		)}  										(. equality_ast = treebuilder; .)
+								
+		| ( "ISNULL"								(. equality_ast = gen->NewAST(L"ISNULL"); equality_ast->Params.push_back(treebuilder); .) //regard ISNULL and NOTNULL as functions with one parameter
+			| "NOTNULL" 							(. equality_ast = gen->NewAST(L"NOTNULL"); equality_ast->Params.push_back(treebuilder); .)
+			| "NOT"									(. SqlAST* tmpnode = gen->NewAST(L"NOT"); .)
+			( "LIKE"								(. SqlAST* comp_astright = nullptr; .)
+				ComparisonOp<comp_astright> 		(. SqlAST* tmpnodelike = gen->NewAST(L"LIKE");  tmpnodelike->Params.push_back(treebuilder);  tmpnodelike->Params.push_back(comp_astright); tmpnode->Params.push_back(tmpnodelike);  .)
+				| "NULL" 							(. tmpnode->Params.push_back(treebuilder); tmpnode->Params.push_back(gen->NewAST(L"__VALUE", AnyType::MakeNull()));  .)
+				| "IN"								(. std::vector<SqlAST*> params; .)
+				FunctionParams<params>				(. tmpnode->SetOperator("NOT IN"); tmpnode->Params.push_back(treebuilder); SqlAST* tmpnodecollection = gen->NewAST(L"__COLLECTION"); tmpnodecollection->Params = params; tmpnode->Params.push_back(tmpnodecollection);.)
+			) 										(. equality_ast = tmpnode; .)
+			| "IN"									(. std::vector<SqlAST*> params; .)
+			FunctionParams<params> 					(. SqlAST* tmpnodein = gen->NewAST(L"IN"); tmpnodein->Params.push_back(treebuilder); SqlAST* tmpnodecollection = gen->NewAST(L"__COLLECTION"); tmpnodecollection->Params = params; tmpnodein->Params.push_back(tmpnodecollection); equality_ast = tmpnodein; .)
+		) 
+	)
+.
+					
+ComparisonOp<SqlAST*& comp_ast> = 			(. SqlAST* addsub_ast = nullptr; .)
+	AddSubOp<addsub_ast> 					(. SqlAST* treebuilder = addsub_ast; .)
+	{ ( "<" | ">" | "<=" | ">=" )			(. const wchar_t* funcName = t->val; .)
+											(. SqlAST* addsub_astright = nullptr; .)
+		AddSubOp<addsub_astright>			(. SqlAST* tmpnode = gen->NewAST(funcName); tmpnode->Params.push_back(treebuilder); tmpnode->Params.push_back(addsub_astright); treebuilder = tmpnode; .)
+	}										(. comp_ast = treebuilder; .)
+.
+
+AddSubOp<SqlAST*& addsub_ast> =				(. SqlAST* factor_ast = nullptr; .)
+	FactorOp<factor_ast> 					(. SqlAST* treebuilder = factor_ast; .)
+	{ ( "+" | "-" ) 						(. const wchar_t* funcName(t->val); .)
+											(. SqlAST* factor_astright = nullptr; .)
+		FactorOp<factor_astright>			(. SqlAST* tmpnode = gen->NewAST(funcName); tmpnode->Params.push_back(treebuilder); tmpnode->Params.push_back(factor_astright); treebuilder = tmpnode; .)
+	}										(. addsub_ast = treebuilder; .)
+.
+			
+FactorOp<SqlAST*& factor_ast> = 			(. SqlAST* concat_ast = nullptr; .) 
+	ConcatOp<concat_ast> 					(. SqlAST* treebuilder = concat_ast; .)
+	{ ( "*" | "/" | "%" ) 					(. const wchar_t* funcName = t->val; .)
+											(. SqlAST* concat_astright = nullptr; .) 
+		ConcatOp<concat_astright>			(. SqlAST* tmpnode = gen->NewAST(funcName); tmpnode->Params.push_back(treebuilder); tmpnode->Params.push_back(concat_astright); treebuilder = tmpnode; .)
+	} 										(. factor_ast = treebuilder; .)
+.
+
+ConcatOp<SqlAST*& concat_ast> =
+	(										(. SqlAST* tmpnode = nullptr; .)
+		StringLit<concat_ast>
+		{									(. tmpnode = gen->NewAST(L"||"); tmpnode->Params.push_back(concat_ast); .)
+			"||" 							(. SqlAST* string_astright = nullptr; .) 
+			StringLit<string_astright>		(. tmpnode->Params.push_back(string_astright); .)
+		} 									(. if (tmpnode != nullptr && tmpnode->Params.size() > 1) concat_ast = tmpnode; .) //did we enter the loop? if so, concat_ast = tmpnode
+		|
+		PsParam<concat_ast>
+		|
+		FloatLit<concat_ast>
+		| "NULL" 							(. concat_ast = gen->NewAST(L"__VALUE", AnyType::MakeNull()); .)
+		| HexLit<concat_ast>
+		|
+		(
+			"CAST" "("
+			Cast<concat_ast>
+			")"
+			| "true"									(. concat_ast = gen->NewAST(L"__VALUE", true);.)
+			| "false" 									(. concat_ast = gen->NewAST(L"__VALUE", false);.)
+			| NegatableIdent<concat_ast>
+			[
+				FunctionParams<(*concat_ast).Params>	(. concat_ast->FuncName = concat_ast->Variable; .)   // Variable = FuncName implies "function"
+			]
+		)
+		| "("
+		Expression<concat_ast> ")"
+	)
+.
+
+NegatableIdent<SqlAST*& ident_ast> =		(. bool isNegative = false; .)
+	(
+		["-"								(. isNegative = true; .)
+		]
+		Ident<ident_ast>					(. if (isNegative) {SqlAST* top = gen->NewAST(); top->SetOperator("-"); top->Params.push_back(ident_ast); ident_ast = top; } .)
+	)
+.
+
+Ident<SqlAST*& variable_ast> =
+	(
+		varname								(. variable_ast = gen->NewAST(); variable_ast->SetVariable(t->val); .)
+		[ "." varname						(. variable_ast->AppendFieldToTable(t->val); .)
+		]
+		|
+		bracketIdent						(. variable_ast = gen->NewAST(); variable_ast->SetVariable(t->val); .)
+		[ "." bracketIdent					(. variable_ast->AppendFieldToTable(t->val); .)
+		]
+	)
+.
+
+Cast<SqlAST*& cast_ast> =					(.	cast_ast = gen->NewAST(L"CAST");
+												cast_ast->Variable = cast_ast->FuncName;		// Variable = FuncName implies "function"
+												cast_ast->Params.push_back(gen->NewAST());
+												cast_ast->Params.push_back(gen->NewAST()); .)
+	Ident<(*cast_ast).Params[0]>
+	"AS"
+	ColumnType<(*cast_ast).Params[1]>
+.
+
+Case<SqlAST*& case_ast> =					(.	case_ast = gen->NewAST(L"__CASE");
+												case_ast->Params.push_back(gen->NewAST()); /* base expression */
+												case_ast->Params.push_back(gen->NewAST()); /* else expression */
+												case_ast->Params[0]->SetNullValue();
+												case_ast->Params[1]->SetNullValue(); .)
+		
+		[ Expression<(*case_ast).Params[0]> ]			// base expression
+		CaseWhen<case_ast>								// CASE must have at least one block. This is that mandatory block.
+		{ CaseWhen<case_ast> }							// 0..N other blocks
+		[ "ELSE" Expression<(*case_ast).Params[1]> ]
+		"END"
+.
+
+CaseWhen<SqlAST*& case_ast> =
+	"WHEN"									(. SqlAST* when_ast = nullptr; .)
+	Expression<when_ast>
+	"THEN"									(. SqlAST* then_ast = nullptr; .)
+	Expression<then_ast>
+											(. case_ast->Params.push_back(when_ast);
+											   case_ast->Params.push_back(then_ast); .)
+.
+
+// In Postgres you get two word types, such as DOUBLE PRECISION
+ColumnType<SqlAST*& type_ast> =				(. std::wstring buf; .)
+	varname									(. buf = t->val; .)
+	[ 
+		varname								(.  buf += L" ";
+												buf += t->val; .)
+	]
+											(. type_ast->SetValue(buf.c_str()); .)
+.
+
+FunctionParams<.std::vector<SqlAST*>& params .> = 																					
+	"("
+	(										
+		"*"									(. params.push_back(gen->NewAST(L"__VARIABLE")); params.back()->Variable = "*"; .)			// count(*)
+	 	|  								
+											(. SqlAST* exp = nullptr; .)
+		Expression<exp> 					(. params.push_back(exp); .)
+		{ "," 								(. SqlAST* exp_multiple = nullptr; .)
+			Expression<exp_multiple>		(. params.push_back(exp_multiple); .)
+		}
+	)
+	")"
+.
+
+FloatLit<SqlAST*& float_ast> =
+	floatnumber								(. float_ast = gen->NewAST(L"__VALUE", std::stod(t->val)); .)
+.
+
+StringLit<SqlAST*& string_ast> =
+	stringl 								(. string_ast = gen->NewAST(L"__VALUE", t->val); .)
+.
+
+HexLit<SqlAST*& hex_ast> =
+	hexlit									(. hex_ast = gen->NewAST(L"__VALUE", t->val); .)
+.
+
+PsParam<SqlAST*& psParam> =
+	psParam									(. psParam = gen->NewAST(); psParam->SetPreparedParam((int) std::stof(t->val + 1)); .)
+.
+
+UnaryOpWeak =
+	"NOT"
+.
+
+END Statement.

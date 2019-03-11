@@ -1,0 +1,7 @@
+*.sdf
+*.suo
+*.opendb
+Coco/Debug
+Coco/Coco/Debug
+Coco/Release
+Coco/Coco/Release
