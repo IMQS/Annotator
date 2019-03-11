@@ -15,25 +15,24 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/../../t2-output/linux-clang-debug-default/RoadProcessor",
-            //"args": [
-            //    "bench",
-            //],
             "args": [
-                "--lens",
-                "Fujifilm X-T2,Samyang 12mm f/2.0 NCS CS",
-                "speed",
-                "{\"z1\":1.287231, \"zy\":-0.000532, \"sensorCrop\":[0,0,1920,1080]}",
-                "--csv",
-                //"-o",
-                //"x.json",
-                "/home/ben/mldata/train/ORT Day1 (2).MOV",
+                "roadtype",
             ],
             //"args": [
             //    "--lens",
             //    "Fujifilm X-T2,Samyang 12mm f/2.0 NCS CS",
-            //    "perspective",
-            //    //"/home/ben/mldata/DSCF3040.MOV",
+            //    "speed",
+            //    "{\"z1\":1.287231, \"zy\":-0.000532, \"sensorCrop\":[0,0,1920,1080]}",
+            //    "--csv",
+            //    //"-o",
+            //    //"x.json",
             //    "/home/ben/mldata/train/ORT Day1 (2).MOV",
+            //],
+            //"args": [
+            //    "--lens",
+            //    "Fujifilm X-T2,Samyang 12mm f/2.0 NCS CS",
+            //    "perspective",
+            //    "/home/ben/Videos/IMQS3436.MOV",
             //],
             //"args": [
             //    "--lens",
@@ -70,15 +69,15 @@
                     "value": "${workspaceFolder}/../../t2-output/linux-clang-debug-default"
                 }
             ],
-            "externalConsole": true,
+            "externalConsole": false,
             "MIMode": "gdb",
-            "setupCommands": [
-                {
-                    "description": "Enable pretty-printing for gdb",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                }
-            ]
+            //"setupCommands": [
+            //    {
+            //        "description": "Enable pretty-printing for gdb",
+            //        "text": "-enable-pretty-printing",
+            //        "ignoreFailures": true
+            //    }
+            //]
         },
     ]
 }

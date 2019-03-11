@@ -41,3 +41,9 @@
 
 #include <cuda.h>
 #include <cuda_runtime_api.h>
+
+// Undefine ridiculous X11 macros
+#undef Bool
+#undef None
+
+#include <torch/script.h>

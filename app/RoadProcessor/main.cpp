@@ -4,6 +4,7 @@
 #include "MeshRenderer.h"
 #include "OpticalFlow.h"
 #include "Bench.h"
+#include "RoadType.h"
 #include "Experiments/CudaLearn.h"
 
 namespace imqs {
@@ -187,7 +188,8 @@ int main(int argc, char** argv) {
 	cmdAuto->AddValue("", "speed", "Speed track (JSON)");
 	cmdAuto->AddValue("m", "mpp", "Meters per pixel", "0");
 
-	auto bench = args.AddCommand("bench", "Various internal benchmarks", Bench);
+	auto bench        = args.AddCommand("bench", "Various internal benchmarks", Bench);
+	auto roadTypeTest = args.AddCommand("roadtype", "Test the road type model", RoadTypeModel::Test);
 
 	if (!args.Parse(argc, (const char**) argv))
 		return 1;

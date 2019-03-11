@@ -449,6 +449,38 @@ local opencv = ExternalLibrary {
 	},
 }
 
+-- See comment inside build/copy-libtorch-to-deps for the thinking around why we
+-- choose to reference LibTorch from a 'deps' directory inside our source tree.
+local torch_root = "deps/torch" 
+local deploy_libtorch_c10_cuda = copyfile_to_output(torch_root .. "/lib/libc10_cuda.so", linuxFilter)
+local deploy_libtorch_c10 = copyfile_to_output(torch_root .. "/lib/libc10.so", linuxFilter)
+local deploy_libtorch_caffe2 = copyfile_to_output(torch_root .. "/lib/libcaffe2.so", linuxFilter)
+--local deploy_libtorch_torch = copyfile_to_output(torch_root .. "/lib/libtorch.so", linuxFilter)
+local deploy_libtorch_torch = copyfile_to_output(torch_root .. "/lib/libtorch.so.1", linuxFilter)
+
+local torch = ExternalLibrary {
+	Name = "torch",
+	Depends = {
+		deploy_libtorch_c10_cuda,
+		deploy_libtorch_c10,
+		deploy_libtorch_caffe2,
+		deploy_libtorch_torch,
+	},
+	Propagate = {
+		Env = {
+			LIBPATH = {
+				{ "deps/torch/lib"; Config = linuxFilter },
+			},
+		},
+		Libs = {
+			{ "torch", "caffe2", "c10", "c10_cuda", "nvrtc"; Config = linuxFilter },
+		},
+		Includes = {
+			"deps/torch/include",
+		},
+	},
+}
+
 local glfw = ExternalLibrary {
 	Name = "glfw",
 	Propagate = {
@@ -871,7 +903,7 @@ local RoadProcessor = Program {
 	Name = "RoadProcessor",
 	Depends = {
 		--winCrt, Video, gfx, opencv, ffmpeg, pal, libjpeg_turbo, png, stb, tsf, agg, glfw, lz4, proj4
-		winCrt, Video, gfx, opencv, ffmpeg, CUDA, pal, libjpeg_turbo, png, stb, tsf, agg, lz4, proj4
+		winCrt, Video, gfx, opencv, ffmpeg, torch, CUDA, pal, libjpeg_turbo, png, stb, tsf, agg, lz4, proj4
 	},
 	Env = {
 		--PROGOPTS = { "/SUBSYSTEM:CONSOLE"; Config = winFilter },

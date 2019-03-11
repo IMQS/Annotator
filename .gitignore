@@ -7,3 +7,4 @@ pkg/
 CMakeFiles/
 /third_party/cntk/Windows
 /taxonomy*.json
+/deps

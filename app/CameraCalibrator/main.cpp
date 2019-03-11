@@ -96,7 +96,7 @@ void xoMain(xo::SysWnd* wnd) {
 	int  canvWidth  = 1920;
 	int  canvHeight = 1080;
 	canvas->SetImageSizeOnly(canvWidth, canvHeight);
-	canvas->StyleParsef("width: 1440px; height: 810px");
+	canvas->StyleParsef("width: 1860px; height: 1000px");
 
 	//string       src = "C:\\Users\\benh\\Pictures\\perspective-1.png";
 	//string       src = "/home/ben/Pictures/vlcsnap-2018-06-22-14h33m23s250.png";
@@ -105,7 +105,7 @@ void xoMain(xo::SysWnd* wnd) {
 	//string src = "/home/ben/Pictures/vlcsnap-2018-08-27-15h11m17s398-bottom-2-thirds.png";
 	//string       src = "/home/ben/Pictures/vlcsnap-2018-08-27-15h11m17s398-FHD.png";
 	//string       src = "/home/ben/Pictures/vlcsnap-2018-08-28-16h56m07s892-002704-325-crop.png";
-	string       src = "/home/ben/Pictures/vlcsnap-2018-08-30-10h18m24s551.png";
+	string       src = "/home/ben/Pictures/vlcsnap-3436-middle.png";
 	string       srcRaw;
 	gfx::ImageIO imgIO;
 	os::ReadWholeFile(src, srcRaw);
@@ -113,6 +113,9 @@ void xoMain(xo::SysWnd* wnd) {
 	int   width  = 0;
 	int   height = 0;
 	imgIO.LoadPng(srcRaw.data(), srcRaw.size(), width, height, img);
+
+	auto lastDraw = new time::Time();
+	*lastDraw     = time::Now();
 
 	auto c2d = canvas->GetCanvas2D();
 	/*
@@ -132,6 +135,9 @@ void xoMain(xo::SysWnd* wnd) {
 	root->OnMouseMove([=](xo::Event& ev) -> void {
 		if (!Manipulate)
 			return;
+		// for linux we have to rate limit, because I guess XO doesn't discard queued mousemove messages on linux.
+		if (time::Now() - *lastDraw < 30 * time::Millisecond)
+			return;
 		ZFactor1 = 1.0 + (ev.PointsRel[0].x - 500) * 0.0015f;
 		ZFactor2 = (ev.PointsRel[0].y - 800) * 0.000003f;
 		zfactor1->SetText(tsf::fmt("%8.6f", ZFactor1).c_str());
@@ -139,5 +145,6 @@ void xoMain(xo::SysWnd* wnd) {
 		auto c2d = canvas->GetCanvas2D();
 		UnprojectImage(c2d->Buffer(), canvWidth, canvHeight, canvWidth * 4, img, width, height, width * 4);
 		canvas->ReleaseAndInvalidate(c2d);
+		*lastDraw = time::Now();
 	});
 }
