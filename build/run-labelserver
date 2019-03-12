@@ -1,0 +1,9 @@
+#!/bin/bash
+set -e
+BUILD=linux-clang-debug-default
+if [ "$1" == "-r" ] || [ "$1" == "--release" ]; then
+	BUILD=linux-clang-release-default
+	shift
+fi
+tundra2 $BUILD LabelServer
+LD_LIBRARY_PATH=t2-output/$BUILD t2-output/$BUILD/LabelServer "$@"

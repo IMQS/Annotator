@@ -1,10 +1,16 @@
 {
 	"folders": [
 		{
+			"path": "/home/ben/dev/Annotator/app/CameraCalibrator"
+		},
+		{
 			"path": "/home/ben/dev/Annotator/app/FrameServer"
 		},
 		{
-			"path": "/home/ben/dev/Annotator/lib/Video"
+			"path": "/home/ben/dev/Annotator/app/Labeler"
+		},
+		{
+			"path": "/home/ben/dev/Annotator/app/LabelServer"
 		},
 		{
 			"path": "/home/ben/dev/Annotator/app/RoadProcessor"
@@ -13,20 +19,21 @@
 			"path": "/home/ben/dev/Annotator/lib/gfx"
 		},
 		{
-			"path": "/home/ben/dev/Annotator/app/CameraCalibrator"
+			"path": "/home/ben/dev/Annotator/lib/dba"
 		},
 		{
 			"path": "/home/ben/dev/Annotator/lib/pal"
 		},
 		{
-			"path": "/home/ben/dev/Annotator/app/Labeler"
+			"path": "/home/ben/dev/Annotator/lib/Train"
 		},
 		{
-			"path": "/home/ben/dev/Annotator/lib/Train"
+			"path": "/home/ben/dev/Annotator/lib/Video"
 		}
 	],
 	"settings": {
 		"files.associations": {
+			"Dockerfile-*": "dockerfile",
 			"typeindex": "cpp",
 			"chrono": "cpp",
 			"string_view": "cpp",
@@ -59,7 +66,27 @@
 			"system_error": "cpp",
 			"thread": "cpp",
 			"cinttypes": "cpp",
-			"condition_variable": "cpp"
+			"condition_variable": "cpp",
+			"unordered_map": "cpp",
+			"unordered_set": "cpp",
+			"exception": "cpp",
+			"fstream": "cpp",
+			"functional": "cpp",
+			"iomanip": "cpp",
+			"iostream": "cpp",
+			"istream": "cpp",
+			"limits": "cpp",
+			"memory": "cpp",
+			"numeric": "cpp",
+			"optional": "cpp",
+			"ostream": "cpp",
+			"sstream": "cpp",
+			"stdexcept": "cpp",
+			"streambuf": "cpp",
+			"type_traits": "cpp",
+			"tuple": "cpp",
+			"typeinfo": "cpp",
+			"utility": "cpp"
 		}
 	}
 }

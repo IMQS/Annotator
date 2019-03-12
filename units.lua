@@ -118,10 +118,24 @@ local function makeGlob(dir, options)
 		end
 	end
 
+	local recursive = true
+	if options.Recursive ~= nil then
+		recursive = options.Recursive
+	end
+
 	return FGlob {
 		Dir = dir,
 		Extensions = { ".c", ".cpp", ".cu", ".h" },
 		Filters = filters,
+		Recursive = recursive,
+	}
+end
+
+local function makePrecompiledHeader(dir)
+	return {
+		Source = dir .. "/pch.cpp",
+		Header = "pch.h",
+		Pass = "PchGen",
 	}
 end
 
@@ -544,6 +558,16 @@ local utfz = StaticLibrary {
 	IdeGenerationHints = ideHintThirdParty,
 }
 
+local sqlite = StaticLibrary {
+	Name = "sqlite",
+	Depends = { winCrt, },
+	Sources = {
+		"third_party/sqlite/sqlite3.c",
+		"third_party/sqlite/sqlite3.h",
+	},
+	IdeGenerationHints = ideHintThirdParty,
+}
+
 --[[
 local xo = ExternalLibrary {
 	Name = "xo",
@@ -673,32 +697,6 @@ local xo = SharedLibrary {
 		makeGlob("third_party/xo/dependencies/hash", {}),
 	},
 }
-
--- Return an FGlob node that has the standard IMQS filters applied
-local function makeImqsGlob(dir, options)
-	local filters = {
-		{ Pattern = "_windows"; Config = winFilter },
-		{ Pattern = "_linux"; Config = linuxFilter },
-		{ Pattern = "[/\\]_[^/\\]*$"; Config = "ignore" },
-	}
-	if options.Ignore ~= nil then
-		for _, ignore in ipairs(options.Ignore) do
-			filters[#filters + 1] = { Pattern = ignore; Config = "ignore" }
-		end
-	end
-
-	local recursive = true
-	if options.Recursive ~= nil then
-		recursive = options.Recursive
-	end
-
-	return FGlob {
-		Dir = dir,
-		Extensions = { ".c", ".cpp", ".h" },
-		Filters = filters,
-		Recursive = recursive,
-	}
-end
 
 local uberlogger = Program {
 	Name = "uberlogger",
@@ -833,7 +831,7 @@ local projwrap = SharedLibrary {
 		"lib/projwrap",
 	},
 	Sources = {
-		makeImqsGlob("lib/projwrap", {})
+		makeGlob("lib/projwrap", {})
 	},
 	IdeGenerationHints = ideHintLibrary,
 }
@@ -907,7 +905,20 @@ local dba = SharedLibrary {
 		"lib/dba",
 	},
 	Sources = {
-		makeImqsGlob("lib/dba", { Ignore = {"/Coco/"} }),
+		makeGlob("lib/dba", { Ignore = {"/Coco/"} }),
+	},
+	IdeGenerationHints = ideHintLibrary,
+}
+
+local dbutil = StaticLibrary {
+	Name = "dbutil",
+	Depends = { staticAnalysis, winCrt },
+	PrecompiledHeader = makePrecompiledHeader("lib/dbutil"),
+	Includes = {
+		"lib/dbutil",
+	},
+	Sources = {
+		makeGlob("lib/dbutil", {}),
 	},
 	IdeGenerationHints = ideHintLibrary,
 }
@@ -1079,6 +1090,32 @@ local FrameServer = Program {
 	},
 	Sources = {
 		makeGlob("app/FrameServer", {}),
+	},
+	IdeGenerationHints = ideHintApp,
+}
+
+local LabelServer = Program {
+	Name = "LabelServer",
+	Depends = {
+		winCrt, Video, dbutil, dba, projwrap, phttp, uberlog, tsf, gfx, pal, sqlite
+	},
+	Env = {
+		PROGOPTS = { "/SUBSYSTEM:CONSOLE"; Config = winFilter },
+	},
+	Libs = { 
+		{ "Ws2_32.lib"; Config = winFilter },
+		{ "proj", "omp", "m", "rt", "stdc++"; Config = linuxFilter },
+	},
+	PrecompiledHeader = {
+		Source = "app/LabelServer/pch.cpp",
+		Header = "pch.h",
+		Pass = "PchGen",
+	},
+	Includes = {
+		"app/LabelServer", -- This is purely here for VS intellisense
+	},
+	Sources = {
+		makeGlob("app/LabelServer", {}),
 	},
 	IdeGenerationHints = ideHintApp,
 }
