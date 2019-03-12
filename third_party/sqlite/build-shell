@@ -1,0 +1,4 @@
+#!/bin/bash
+#sudo apt install libreadline-dev libncurses5-dev
+clang -DSQLITE_ENABLE_JSON1  -DHAVE_READLINE -o sqlite shell.c sqlite3.c -ldl -lpthread -lm -lreadline -lncurses
+
