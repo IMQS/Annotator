@@ -1,0 +1,40 @@
+{
+    "road_type": {
+        "explain": "Type of road",
+        "values": [
+            "tar",
+            "gravel",
+            "jeep track"
+        ]
+    },
+    "gravel_base_stones": {
+        "explain": "Stones under the gravel road are showing through",
+        "values": [
+            1,
+            2,
+            3,
+            4,
+            5
+        ]
+    },
+    "gravel_elevation": {
+        "explain": "Is the road sunken beneath the surrounding area?",
+        "values": [
+            1,
+            2,
+            3,
+            4,
+            5
+        ]
+    },
+    "gravel_undulations": {
+        "explain": "Undulations (ie ripples) on the road",
+        "values": [
+            1,
+            2,
+            3,
+            4,
+            5
+        ]
+    }
+}
