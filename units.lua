@@ -177,8 +177,6 @@ local unicode = ExternalLibrary {
 
 local vcpkg_bin = "third_party/vcpkg/installed/x64-windows/"
 
-local deploy_sqlite = copyfile_to_output(vcpkg_bin .. "bin/sqlite3.dll", winFilter)
-
 local deploy_libcurl_debug = copyfile_to_output(vcpkg_bin .. "debug/bin/libcurl-d.dll", winDebugFilter)
 local deploy_libcurl_release = copyfile_to_output(vcpkg_bin .. "bin/libcurl.dll", winReleaseFilter)
 
@@ -881,11 +879,11 @@ local CUDA = ExternalLibrary {
 
 local dba = SharedLibrary {
 	Name = "dba",
-	Depends = { staticAnalysis, winCrt, pal, tlsf, utfz, tsf, deploy_sqlite, projwrap },
+	Depends = { staticAnalysis, winCrt, pal, tlsf, utfz, tsf, sqlite, projwrap },
 	Libs = {
 		-- version.lib is needed by SQLAPI
-		{ "libpq.lib", "x64-windows/lib/sqlite3.lib", "Ws2_32.lib", "Secur32.lib", "version.lib"; Config = winFilter },
-		{ "pq", "sqlite3"; Config = linuxFilter },
+		{ "libpq.lib", "Ws2_32.lib", "Secur32.lib", "version.lib"; Config = winFilter },
+		{ "pq", Config = linuxFilter },
 	},
 	Defines = {
 		"IMQS_DBA_EXCLUDE_SQLAPI"

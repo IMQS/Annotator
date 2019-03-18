@@ -1,6 +1,6 @@
 #pragma once
 #include "Driver.h"
-#include <sqlite3.h>
+#include <sqlite/sqlite3.h>
 #include "SqliteSchema.h"
 
 /*

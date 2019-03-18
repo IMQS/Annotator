@@ -1,0 +1,40 @@
+{
+	"defaultSeverity": "warning",
+	"extends": [
+		"tslint:recommended"
+	],
+	"linterOptions": {
+		"exclude": [
+			"node_modules/**"
+		]
+	},
+	"rules": {
+		"quotemark": [
+			true,
+			"single"
+		],
+		"indent": [
+			true,
+			"tabs",
+			4
+		],
+		"max-classes-per-file": false,
+		"member-ordering": [
+			"true",
+			{
+				"order": "fields-first"
+			}
+		],
+		"curly": false,
+		"forin": false,
+		"max-line-length": false,
+		"comment-format": false,
+		"whitespace": false,
+		"prefer-const": false,
+		"member-access": false,
+		"interface-name": false,
+		"ordered-imports": false,
+		"object-literal-sort-keys": false,
+		"no-consecutive-blank-lines": false
+	}
+}
