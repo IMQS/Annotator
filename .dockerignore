@@ -1,3 +1,5 @@
+node_modules
+app/photo-label/node_modules
 /.tundra2.*
 /t2-output
 /ide

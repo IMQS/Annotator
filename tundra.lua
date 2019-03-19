@@ -32,6 +32,9 @@ local unix_common = {
 			{ "-O3"; Config = "linux-*-release-*" },
 			{ "-mavx2" },
 			{ "-fopenmp=libomp" },
+			-- _GLIBCXX_DEBUG gives us debug information on std types, such as string and vector
+			-- BUT then we need to compile OpenCV with this option enabled
+			-- { "-D_GLIBCXX_DEBUG"; Config = "linux-*-debug-*" },
 		},
 		CCOPTS = {
 			{ "-fPIC" },

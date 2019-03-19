@@ -143,7 +143,7 @@ export default class Label extends Vue {
 			let val = this.dim.shortcutKeyToValue[ev.key.toUpperCase()];
 			if (val !== undefined)
 				this.setLabel(val);
-			else if (ev.key == ' ')
+			else if (ev.key === ' ')
 				this.setLabel('');
 		}
 	}

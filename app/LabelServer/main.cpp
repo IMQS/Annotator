@@ -11,6 +11,7 @@ int main(int argc, const char** argv) {
 	log.OpenStdOut();
 
 	argparse::Args args("LabelServer <photo dir> <dimensions>");
+	args.AddValue("e", "export", "Export labels to a hierarchy of folders ready to train a neural network");
 	if (!args.Parse(argc, argv) || args.Params.size() != 2) {
 		if (!args.WasHelpShown)
 			args.ShowHelp();
@@ -23,7 +24,16 @@ int main(int argc, const char** argv) {
 		tsf::print("Error: %v\n", err.Message());
 		return 1;
 	}
-	s.ListenAndRun();
+
+	if (args.Has("export")) {
+		err = s.Export(args.Get("export"));
+		if (!err.OK()) {
+			tsf::print("%v\n", err.Message());
+			return 1;
+		}
+	} else {
+		s.ListenAndRun();
+	}
 
 	return 0;
 }
