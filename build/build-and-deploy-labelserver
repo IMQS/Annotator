@@ -2,3 +2,13 @@
 docker build -t labelserver -f build/docker/LabelServer/Dockerfile .
 docker tag labelserver imqs/labelserver
 docker push imqs/labelserver
+
+
+# This is the script that I use to launch the server on 'ai1'
+# #!/bin/bash
+# sudo docker pull imqs/labelserver
+# for pid in $(sudo docker ps -q -f ancestor=imqs/labelserver)
+# do
+#         sudo docker kill $pid
+# done
+# sudo docker run -d --rm -v /home/ben/gopro/2019/:/mldata -p 8080:8080 imqs/labelserver /mldata /deploy/dims/roads-m3-cou.json
