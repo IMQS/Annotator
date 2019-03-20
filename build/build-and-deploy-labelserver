@@ -1,0 +1,4 @@
+#!/bin/bash
+docker build -t labelserver -f build/docker/LabelServer/Dockerfile .
+docker tag labelserver imqs/labelserver
+docker push imqs/labelserver

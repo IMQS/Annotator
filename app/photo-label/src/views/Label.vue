@@ -40,8 +40,6 @@
 						<image-scroller style='width: 10rem' :pos='brightness' @change='onBrightnessChange'></image-scroller>
 					</div>
 				</div>
-			</div>
-			<div class='labelContainer'>
 				<div class='labelTxt' :style='{"font-size": labelTxtFontSize}'>
 					{{imgLabel}}
 				</div>
@@ -398,17 +396,6 @@ export default class Label extends Vue {
 	align-items: center;
 	align-content: center;
 	pointer-events: auto;
-}
-.labelContainer {
-	position: absolute;
-	width: 100%;
-	height: 100%;
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	align-content: center;
-	justify-content: center;
-	pointer-events: none;
 }
 .labelTxt {
 	font-size: 15rem;
