@@ -10,6 +10,22 @@ Error Server::Initialize(uberlog::Logger* log, std::string photoDir, std::string
 	Log = log;
 	DB.Close();
 
+	// figure out static file directory
+	StaticRoot           = ".";
+	vector<string> sDirs = {
+	    path::Join(path::Dir(os::ProcessPath()), "dist"),
+	    // go from Annotator/t2-output/linux-clang-debug-default to Annotator/apps/photo-label/dist
+	    path::Join(path::Dir(path::Dir(path::Dir(os::ProcessPath()))), "app", "photo-label", "dist"),
+	};
+	for (auto s : sDirs) {
+		if (os::IsDir(s)) {
+			StaticRoot = s;
+			break;
+		}
+	}
+	if (!os::IsDir(StaticRoot))
+		return Error::Fmt("Can't find static files directory for serving up the Vue app. Searched in [%v]", strings::Join(sDirs, ","));
+
 	// chop trailing slash
 	if (strings::EndsWith(photoDir, "/") || strings::EndsWith(photoDir, "\\"))
 		photoDir.erase(photoDir.end() - 1);
@@ -45,9 +61,7 @@ void Server::ListenAndRun(int port) {
 	phttp::Server server;
 	server.Log = make_shared<PHttpLogBridge>(Log);
 	server.ListenAndRun("*", port, [&](phttp::Response& w, phttp::RequestPtr r) {
-		if (r->Path == "/") {
-			w.Body = "Hello " + r->Path;
-		} else if (r->Path == "/api/dimensions") {
+		if (r->Path == "/api/dimensions") {
 			SendJson(w, DimensionsRaw);
 		} else if (r->Path == "/api/list_images") {
 			SendJson(w, AllPhotos);
@@ -80,7 +94,7 @@ void Server::ListenAndRun(int port) {
 			if (err.OK() && w.Body == "" && w.Status == 0)
 				w.SetStatusAndBody(200, "OK");
 		} else {
-			w.Status = 404;
+			ServeStatic(w, r);
 		}
 	});
 }
@@ -252,6 +266,47 @@ Error Server::ApiGetLabels(phttp::Response& w, phttp::RequestPtr r, dba::Tx* tx)
 		return rows.Err();
 	SendJson(w, resp);
 	return Error();
+}
+
+void Server::ServeStatic(phttp::Response& w, phttp::RequestPtr r) {
+	auto clean = r->Path;
+
+	// sanitize
+	while (true) {
+		size_t oldLen = clean.size();
+		clean         = strings::Replace(clean, "..", "");
+		clean         = strings::Replace(clean, "//", "/");
+		if (clean.size() == oldLen)
+			break;
+	}
+
+	if (clean == "/" || clean == "" || clean.find("/label/") == 0)
+		clean = "index.html";
+
+	auto file = path::Join(StaticRoot, clean);
+	auto err  = os::ReadWholeFile(file, w.Body);
+	if (!err.OK()) {
+		if (os::IsNotExist(err))
+			w.Status = 404;
+		else
+			w.SetStatusAndBody(400, err.Message());
+		return;
+	}
+
+	auto ext = strings::tolower(path::Extension(clean));
+	if (ext == ".jpg" || ext == ".jpeg")
+		w.SetHeader("Content-Type", "image/jpeg");
+	else if (ext == ".html")
+		w.SetHeader("Content-Type", "text/html");
+	else if (ext == ".ico")
+		w.SetHeader("Content-Type", "image/icon");
+	else if (ext == ".css")
+		w.SetHeader("Content-Type", "text/css");
+	else if (ext == ".js")
+		w.SetHeader("Content-Type", "text/javascript");
+	else if (ext == ".js.map")
+		w.SetHeader("Content-Type", "application/json");
+	w.Status = 200;
 }
 
 } // namespace label

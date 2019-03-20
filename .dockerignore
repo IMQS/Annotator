@@ -13,3 +13,4 @@ CMakeFiles/
 /third_party/vcpkg
 /build/docker/roadprocessor/Dockerfile
 /build/docker/roads-cppbuild/Dockerfile
+/build/docker/LabelServer/Dockerfile

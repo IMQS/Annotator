@@ -74,11 +74,16 @@ export default class Label extends Vue {
 	brightness: number = 0.5;
 	//activeLabel: string = ''; // eg 1..5, or 'gravel', 'tar, etc.
 	imgLabel: string = '';
+	ctrlKeyDown: boolean = false;
+	waitingForImg: boolean = false;
 	//isResizeBusy: boolean = false;
 
 	@Watch('imgIndex') onCurrentImgChanged() {
-		this.loadLabel();
+		if (!this.ctrlKeyDown)
+			this.loadLabel();
+		this.waitingForImg = true;
 		this.currentImgEl.onload = () => {
+			this.waitingForImg = false;
 			this.draw();
 		};
 		this.currentImgEl.src = this.currentImgSrc;
@@ -127,14 +132,20 @@ export default class Label extends Vue {
 	}
 
 	onKeyDown(ev: KeyboardEvent) {
+		if (ev.key === 'Control')
+			this.ctrlKeyDown = true;
+
 		let seek = 0;
 		if (ev.key === 'ArrowLeft')
 			seek = -1;
 		else if (ev.key === 'ArrowRight')
 			seek = 1;
 
-
-		if (seek) {
+		// Only seek if we're not busy waiting for an image. If we don't do this, then we end up
+		// cancelling the previous image load, and this happens every time, so we end up never
+		// showing any updates. All things considered, it's probably a good thing to make sure
+		// that every single frame flashes before the user's eyes when he is labelling.
+		if (seek && !this.waitingForImg) {
 			this.imgIndex = Math.max(0, Math.min(this.imgIndex + seek, this.allPhotos.length - 1));
 			if (ev.ctrlKey)
 				this.setLabel(this.imgLabel);
@@ -146,6 +157,11 @@ export default class Label extends Vue {
 			else if (ev.key === ' ')
 				this.setLabel('');
 		}
+	}
+
+	onKeyUp(ev: KeyboardEvent) {
+		if (ev.key === 'Control')
+			this.ctrlKeyDown = false;
 	}
 
 	onBrightnessChange(pos: number) {
@@ -260,11 +276,13 @@ export default class Label extends Vue {
 		});
 		window.addEventListener('resize', this.onResize);
 		window.addEventListener('keydown', this.onKeyDown);
+		window.addEventListener('keyup', this.onKeyUp);
 	}
 
 	destroyed() {
 		window.removeEventListener('resize', this.onResize);
 		window.removeEventListener('keydown', this.onKeyDown);
+		window.removeEventListener('keyup', this.onKeyUp);
 	}
 }
 </script>

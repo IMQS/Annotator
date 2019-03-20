@@ -1095,7 +1095,8 @@ local FrameServer = Program {
 local LabelServer = Program {
 	Name = "LabelServer",
 	Depends = {
-		winCrt, Video, dbutil, dba, projwrap, phttp, uberlog, tsf, gfx, pal, sqlite
+		--winCrt, Video, dbutil, dba, projwrap, phttp, uberlog, tsf, gfx, pal, sqlite
+		winCrt, dbutil, dba, projwrap, phttp, uberlog, tsf, gfx, pal, sqlite
 	},
 	Env = {
 		PROGOPTS = { "/SUBSYSTEM:CONSOLE"; Config = winFilter },

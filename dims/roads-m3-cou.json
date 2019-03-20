@@ -4,7 +4,8 @@
         "values": [
             "tar",
             "gravel",
-            "jeep track"
+            "jeep track",
+            "ignore"
         ]
     },
     "gravel_base_stones": {
