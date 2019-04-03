@@ -64,4 +64,6 @@ COPY --from=0 /build/t2-output/linux-clang-release-default/*.so /usr/local/lib/
 
 RUN ldconfig /usr/local/cuda-10.0/compat
 
+COPY models/ /deploy/models/
+
 ENTRYPOINT ["/deploy/RoadProcessor"]
