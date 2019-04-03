@@ -321,7 +321,7 @@ void Request::AddCookie(const Cookie& cookie) {
 
 void Request::SetBasicAuth(const std::string& username, const std::string& password) {
 	auto val = "BASIC " + modp::b64_encode(username + ":" + password);
-	SetHeader("Authentication", val.c_str());
+	SetHeader("Authorization", val.c_str());
 }
 
 HeaderItem* Request::HeaderByName(const std::string& name, bool createIfNotExist) {
@@ -557,6 +557,11 @@ Response Client::Post(const std::string& url, size_t bodyBytes, const void* body
 	return c.Post(url, bodyBytes, body, headers);
 }
 
+Response Client::Post(const std::string& url, const std::string& body, const HeaderMap& headers) {
+	Connection c;
+	return c.Post(url, body, headers);
+}
+
 Response Client::Post(const std::string& url, const HeaderMap& headers) {
 	Connection c;
 	return c.Post(url, 0, nullptr, headers);
@@ -612,6 +617,10 @@ Response Connection::Get(const std::string& url, const HeaderMap& headers) {
 
 Response Connection::Post(const std::string& url, size_t bodyBytes, const void* body, const HeaderMap& headers) {
 	return Perform("POST", url, bodyBytes, body, "", headers);
+}
+
+Response Connection::Post(const std::string& url, const std::string& body, const HeaderMap& headers) {
+	return Perform("POST", url, body.size(), body.data(), "", headers);
 }
 
 Response Connection::Post(const std::string& url, const HeaderMap& headers) {

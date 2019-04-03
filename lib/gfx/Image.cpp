@@ -202,6 +202,58 @@ Image Image::AsType(ImageFormat fmt) const {
 	return r;
 }
 
+Image Image::HalfSizeSIMD() const {
+	IMQS_ASSERT(Format == ImageFormat::RGBA);
+
+	Image dstImg;
+	dstImg.Alloc(Format, Width / 2, Height / 2);
+	unsigned outHeight = dstImg.Height;
+	unsigned outWidth  = dstImg.Width;
+
+	// expand two pixels in the lower 64-bits of a register (..AB), into (.Ar.Ag.Ab.Aa.Br.Bg.Bb.Ba)
+	uint8_t m_expand8to16[16] = {7, 128, 6, 128, 5, 128, 4, 128, 3, 128, 2, 128, 1, 128, 0, 128};
+	__m128i expand8To16       = _mm_loadu_si128((__m128i*) m_expand8to16);
+
+	// pack
+	uint8_t m_pack16to8[16] = {6, 4, 2, 0, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128};
+	__m128i pack16to8       = _mm_loadu_si128((__m128i*) m_pack16to8);
+
+	for (unsigned y = 0; y < outHeight; y++) {
+		const uint8_t* srcTop    = Line(y * 2);
+		const uint8_t* srcBottom = Line(y * 2 + 1);
+		uint8_t*       dst       = dstImg.Line(y);
+		for (unsigned x = 0; x < outWidth; x++) {
+			// Each pixel is 32 bits, and an SSE register0x10 is 128 bits, so that's 4 pixels.
+			// We want only 2 pixels in each SSE register, so that we can add them together without overflowing
+			// So we want to load 2 pixels from the top, then expand 8 to 16 bits, and then same for the bottom row.
+			__m128i top    = _mm_loadu_si64(srcTop);
+			__m128i bottom = _mm_loadu_si64(srcBottom);
+			top            = _mm_shuffle_epi8(top, expand8To16);
+			bottom         = _mm_shuffle_epi8(bottom, expand8To16);
+			// sum of bottom and top.
+			__m128i sum = _mm_add_epi16(top, bottom);
+			// we now want to sum the left and right halves of sum together
+			// create a copy of sum with left and right swapped
+			__m128i sumSwap = _mm_shuffle_epi32(sum, 0x4E);
+			sum             = _mm_add_epi16(sum, sumSwap);
+			// both sides of sum now contain the sum of the 4 pixels.
+			// divide by 4.
+			sum = _mm_srai_epi16(sum, 2);
+			// we now have our final RGBA values, but they're in 16 registers. We need to pack them down to 8 bits.
+			sum = _mm_shuffle_epi8(sum, pack16to8);
+			// clang 7 doesn't have _mm_storeu_si32, so we need to store the register first, and then copy to 32-bit output. weird!
+			//_mm_storeu_si32(dst, sum);
+			uint32_t tmp[4];
+			_mm_storeu_si128((__m128i*) tmp, sum);
+			*((uint32_t*) dst) = tmp[0];
+			srcTop += 8;
+			srcBottom += 8;
+			dst += 4;
+		}
+	}
+	return dstImg;
+}
+
 Image Image::HalfSizeCheap() const {
 	Image half;
 	half.Alloc(Format, Width / 2, Height / 2);

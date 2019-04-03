@@ -1,10 +1,12 @@
 node_modules
 app/photo-label/node_modules
+**/.vscode
 /.tundra2.*
 /t2-output
 /ide
 /*.png
 /*.jpeg
+/libtorch-extract
 pkg/
 CMakeFiles/
 /third_party/cntk/Windows
@@ -14,3 +16,4 @@ CMakeFiles/
 /build/docker/roadprocessor/Dockerfile
 /build/docker/roads-cppbuild/Dockerfile
 /build/docker/LabelServer/Dockerfile
+/build/docker/build-*

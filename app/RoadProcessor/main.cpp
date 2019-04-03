@@ -4,7 +4,8 @@
 #include "MeshRenderer.h"
 #include "OpticalFlow.h"
 #include "Bench.h"
-#include "RoadType.h"
+#include "gen2/RoadType.h"
+#include "gen2/PhotoProcessor.h"
 #include "Experiments/CudaLearn.h"
 
 namespace imqs {
@@ -188,8 +189,10 @@ int main(int argc, char** argv) {
 	cmdAuto->AddValue("", "speed", "Speed track (JSON)");
 	cmdAuto->AddValue("m", "mpp", "Meters per pixel", "0");
 
-	auto bench        = args.AddCommand("bench", "Various internal benchmarks", Bench);
-	auto roadTypeTest = args.AddCommand("roadtype", "Test the road type model", RoadTypeModel::Test);
+	auto bench = args.AddCommand("bench", "Various internal benchmarks", Bench);
+
+	auto photos = args.AddCommand("photos <username> <password> <client> <prefix>", "Run the gen2 models on GoPro photos", PhotoProcessor::Run);
+	photos->AddValue("r", "resume", "Start at the given photo number (0 is the first)", "0");
 
 	if (!args.Parse(argc, (const char**) argv))
 		return 1;

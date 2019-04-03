@@ -66,6 +66,9 @@ inline int NumChannels(ImageFormat f) {
 	return 0;
 }
 
+// Photoshop switches from 444 to 420 when you go from 51% to 50% on the quality slider, so it
+// makes sense to make the default 444, because we're usually interested in images in the
+// upper quality range.
 enum class JpegSampling {
 	Samp444  = TJSAMP_444,
 	Samp422  = TJSAMP_422,
@@ -114,6 +117,7 @@ public:
 	Image AsType(ImageFormat fmt) const;
 	Image HalfSizeCheap() const;                                          // Downscale by 1/2, in gamma/sRGB space (this is why it's labeled cheap. correct downscale is in linear space, not sRGB)
 	Image HalfSizeLinear() const;                                         // Downscale by 1/2, in linear light space. Slower, but correct.
+	Image HalfSizeSIMD() const;                                           // Downscale by 1/2, in gamma/sRGB space, using SIMD
 	void  BoxBlur(int size, int iterations);                              // Box blur of size [1 + 2 * size], repeated 'iterations' times
 	void  CopyFrom(const Image& src);                                     // Copies as much from src into this as possible
 	void  CopyFrom(const Image& src, Rect32 srcRect, Rect32 dstRect);     // Source and destination rectangles are clipped before copying, but they must be equal in size
@@ -121,7 +125,7 @@ public:
 
 	Error LoadFile(const std::string& filename);
 	Error SavePng(const std::string& filename, bool withAlpha = true, int zlibLevel = 5) const;
-	Error SaveJpeg(const std::string& filename, int quality = 90, JpegSampling sampling = JpegSampling::Samp422) const;
+	Error SaveJpeg(const std::string& filename, int quality = 90, JpegSampling sampling = JpegSampling::Samp444) const;
 	Error SaveFile(const std::string& filename) const;
 
 	uint8_t*        At(int x, int y) { return Data + (y * Stride) + x * BytesPerPixel(); }

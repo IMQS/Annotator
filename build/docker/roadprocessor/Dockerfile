@@ -1,27 +1,12 @@
 ####################################################################################################################
 FROM roads-cppbuild
+
 COPY . /build/
 WORKDIR /build
 RUN tundra2 linux-clang-release RoadProcessor
 
 ####################################################################################################################
-#FROM ubuntu:18.04
-#
-#RUN apt-get update
-#RUN apt-get install -y software-properties-common
-#RUN apt-add-repository ppa:graphics-drivers/ppa
-#RUN apt-get install -y nvidia-driver-396
-#
-##RUN apt-get update
-##RUN apt-cache search nvidia
-##RUN apt-get install -y nvidia-396
-
-####################################################################################################################
-# cudnn7-devel is 1 GB
-# cudnn7-runtime is 712 MB
-# Just using -devel- for now, because our internet is slow in the building
-#FROM nvidia/cuda:9.2-cudnn7-devel-ubuntu18.04
-FROM nvidia/cudagl:9.2-runtime-ubuntu18.04
+FROM nvidia/cuda:10.0-cudnn7-runtime-ubuntu18.04
 
 RUN rm -rf /var/lib/apt/lists/* && apt-get update
 RUN apt-get install -y \
@@ -30,9 +15,10 @@ RUN apt-get install -y \
  libpng16-16 \
  libglib2.0-0 \
  libcurl4 \
- libunwind8
-
-#RUN git clone https://github.com/NVIDIA/libglvnd.git
+ libunwind8 \
+ libxcb-shape0 \
+ libegl1-mesa-dev \
+ libgomp1
 
 COPY --from=0 \
  /usr/local/lib/libavcodec.so.58.18.100 \
@@ -63,15 +49,19 @@ COPY --from=0 \
  /usr/local/share/lensfun/ \
  /usr/local/share/lensfun/
 
-RUN mkdir /deploy
-COPY --from=0 /build/t2-output/linux-clang-release-default/RoadProcessor /deploy/
 COPY --from=0 \
- /build/t2-output/linux-clang-release-default/libVideo.so \
- /build/t2-output/linux-clang-release-default/libpal.so \
+ /usr/local/libtorch/lib/* \
  /usr/local/lib/
 
-RUN apt-get install -y libxcb-shape0
+COPY --from=0 \
+ /usr/local/lib/libnvcuvid.so \
+ /usr/local/lib/libnvidia-encode.so \
+ /usr/local/lib/
 
-RUN ldconfig
+RUN mkdir /deploy
+COPY --from=0 /build/t2-output/linux-clang-release-default/RoadProcessor /deploy/
+COPY --from=0 /build/t2-output/linux-clang-release-default/*.so /usr/local/lib/
+
+RUN ldconfig /usr/local/cuda-10.0/compat
 
 ENTRYPOINT ["/deploy/RoadProcessor"]

@@ -135,13 +135,13 @@ Vec2Base<T> operator+(Vec2Base<T> a, Vec2Base<T> b) { return {a.x + b.x, a.y + b
 template <typename T>
 class Vec2 : public Vec2Base<T> {
 public:
-	typedef Vec2Base<T> Vec2Base;
+	typedef Vec2Base<T> Base;
 	Vec2() {}
 	Vec2(T _x, T _y) {
 		this->x = _x;
 		this->y = _y;
 	}
-	Vec2(Vec2Base b) {
+	Vec2(Base b) {
 		this->x = b.x;
 		this->y = b.y;
 	}

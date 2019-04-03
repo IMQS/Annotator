@@ -1,6 +1,8 @@
 #include "pch.h"
 #include "TorchUtils.h"
 
+using namespace std;
+
 namespace imqs {
 namespace roadproc {
 
@@ -30,7 +32,7 @@ std::string SmallTensorToString(const at::Tensor& t, const std::string& formatSt
 	return s;
 }
 
-std::string SizeToString(const c10::IntList& size) {
+std::string SizeToString(const c10::IntArrayRef& size) {
 	string s = "[";
 	for (size_t i = 0; i < size.size(); i++)
 		s += tsf::fmt("%d,", size[i]);

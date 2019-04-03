@@ -82,14 +82,14 @@ Vec3Base<T> operator+(Vec3Base<T> a, Vec3Base<T> b) { return {a.x + b.x, a.y + b
 template <typename T>
 class Vec3 : public Vec3Base<T> {
 public:
-	typedef Vec3Base<T> Vec3Base;
+	typedef Vec3Base<T> Base;
 	Vec3() {}
 	Vec3(T _x, T _y, T _z) {
 		this->x = _x;
 		this->y = _y;
 		this->z = _z;
 	}
-	Vec3(Vec3Base b) {
+	Vec3(Base b) {
 		this->x = b.x;
 		this->y = b.y;
 		this->z = b.z;

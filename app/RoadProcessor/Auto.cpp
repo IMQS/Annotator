@@ -2,6 +2,7 @@
 #include "Perspective.h"
 #include "Speed.h"
 #include "Stitcher.h"
+#include "Globals.h"
 
 using namespace imqs::gfx;
 using namespace std;
@@ -10,22 +11,6 @@ namespace imqs {
 namespace roadproc {
 
 const string ApiBase = "http://roads.imqs.co.za/api";
-
-static Error Login(http::Connection& con, string username, string password, string& sessionCookie) {
-	http::Connection client;
-	http::HeaderMap  headers = {{"Authorization", "BASIC "}};
-	http::Request    req;
-	req.SetBasicAuth(username, password);
-	auto resp = client.Post(ApiBase + "/auth/login", headers);
-	if (!resp.Is200())
-		return resp.ToError();
-
-	http::Cookie cookie;
-	if (!resp.FirstSetCookie("session", cookie))
-		return Error("No session cookie in login response");
-	sessionCookie = cookie.Value;
-	return Error();
-}
 
 static Error GetTracks(http::Connection& con, string& sessionCookie, string speedFile, string trackFile) {
 	//nlohmann::json speed;
@@ -78,7 +63,7 @@ Error DoAuto(argparse::Args& args) {
 	}
 
 	http::Connection client;
-	err = Login(client, username, password, sessionCookie);
+	err = global::Login(client, username, password, sessionCookie);
 	if (!err.OK())
 		return err;
 

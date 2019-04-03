@@ -11,6 +11,8 @@
 #include <intrin.h>
 #else
 #include <x86intrin.h>
+#include <emmintrin.h>
+#include <immintrin.h>
 #endif
 
 // fast integer divides by constants

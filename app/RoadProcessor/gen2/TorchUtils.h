@@ -8,7 +8,7 @@ enum class ImgNormalizeMode {
 };
 
 std::string SmallTensorToString(const at::Tensor& t, const std::string& formatStr);
-std::string SizeToString(const c10::IntList& size);
+std::string SizeToString(const c10::IntArrayRef& size);
 
 // Returns HWC (RGB)
 at::Tensor ImgToTensor(const gfx::Image& img, ImgNormalizeMode mode = ImgNormalizeMode::UnityZeroMean);

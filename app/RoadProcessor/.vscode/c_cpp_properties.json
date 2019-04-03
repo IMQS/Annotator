@@ -15,9 +15,9 @@
                 "${workspaceFolder}/../..",
                 "${workspaceFolder}/../../third_party",
                 "${workspaceFolder}/../../third_party/glfw/deps",
-                "${workspaceFolder}/../../deps/torch/include",
                 "/usr/local/cuda/include",
-                "/usr/local/include/opencv4"
+                "/usr/local/include/opencv4",
+                "/usr/local/libtorch/include"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/clang",

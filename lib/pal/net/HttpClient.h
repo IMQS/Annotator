@@ -192,6 +192,7 @@ public:
 
 	static Response Get(const std::string& url, const HeaderMap& headers = HeaderMap());
 	static Response Post(const std::string& url, size_t bodyBytes, const void* body, const HeaderMap& headers = HeaderMap());
+	static Response Post(const std::string& url, const std::string& body, const HeaderMap& headers = HeaderMap());
 	static Response Post(const std::string& url, const HeaderMap& headers = HeaderMap());
 	static Response Perform(const std::string& method, const std::string& url, size_t bodyBytes, const void* body, const std::string& caCertsFilePath = "", const HeaderMap& headers = HeaderMap());
 	static void     Perform(const Request& request, Response& response);
@@ -215,6 +216,7 @@ public:
 	void     Close();
 	Response Get(const std::string& url, const HeaderMap& headers = HeaderMap());
 	Response Post(const std::string& url, size_t bodyBytes, const void* body, const HeaderMap& headers = HeaderMap());
+	Response Post(const std::string& url, const std::string& body, const HeaderMap& headers = HeaderMap());
 	Response Post(const std::string& url, const HeaderMap& headers = HeaderMap());
 	Response Perform(const std::string& method, const std::string& url, size_t bodyBytes, const void* body, const std::string& caCertsFilePath = "", const HeaderMap& headers = HeaderMap());
 	void     Perform(const Request& request, Response& response);

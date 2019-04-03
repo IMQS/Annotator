@@ -150,6 +150,14 @@ local function copyfile_to_output(source, config)
 	end
 end
 
+local function copyfile_to_output_rename(source, outname, config)
+	if config then
+		return CopyFile { Source = source, Target = "$(OBJECTDIR)$(SEP)" .. outname; Config = config }
+	else
+		return CopyFile { Source = source, Target = "$(OBJECTDIR)$(SEP)" .. outname }
+	end
+end
+
 local ideHintThirdParty = {
 	Msvc = {
 		SolutionFolder = "Third Party"
@@ -474,34 +482,73 @@ local opencv = ExternalLibrary {
 	},
 }
 
+local rpathLink = ExternalLibrary {
+	Name = "rpathLink",
+	Propagate = {
+		Env = {
+			PROGOPTS = {
+				--  -rpath-link means that libraries use hardcoded paths at link time, but dynamic paths at runtime.
+				--  -rpath      means that libraries use hardcoded paths at link time and runtime.
+				{ "-Wl,-rpath-link=$(@:D)"; Config = linuxFilter },
+			}
+		}
+	}
+
+}
+
 -- See comment inside build/copy-libtorch-to-deps for the thinking around why we
 -- choose to reference LibTorch from a 'deps' directory inside our source tree.
-local torch_root = "deps/torch" 
-local deploy_libtorch_c10_cuda = copyfile_to_output(torch_root .. "/lib/libc10_cuda.so", linuxFilter)
-local deploy_libtorch_c10 = copyfile_to_output(torch_root .. "/lib/libc10.so", linuxFilter)
-local deploy_libtorch_caffe2 = copyfile_to_output(torch_root .. "/lib/libcaffe2.so", linuxFilter)
---local deploy_libtorch_torch = copyfile_to_output(torch_root .. "/lib/libtorch.so", linuxFilter)
-local deploy_libtorch_torch = copyfile_to_output(torch_root .. "/lib/libtorch.so.1", linuxFilter)
+--local torch_root = "deps/torch" 
+local torch_root = "/usr/local/libtorch" 
+
+--local deploy_libtorch_c10_cuda = copyfile_to_output(torch_root .. "/lib/libc10_cuda.so", linuxFilter)
+--local deploy_libtorch_c10 = copyfile_to_output(torch_root .. "/lib/libc10.so", linuxFilter)
+--local deploy_libtorch_caffe2 = copyfile_to_output(torch_root .. "/lib/libcaffe2.so", linuxFilter)
+----local deploy_libtorch_torch = copyfile_to_output(torch_root .. "/lib/libtorch.so", linuxFilter)
+--local deploy_libtorch_torch = copyfile_to_output(torch_root .. "/lib/libtorch.so.1", linuxFilter)
+
+-- This was an attempt to use the prebuilt binaries, but I gave when I discovered that they
+-- are built with -D_GLIBCXX_USE_CXX11_ABI=0
+--local deploy_libtorch_set = {}
+--deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libc10_cuda.so", linuxFilter)
+--deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libc10.so", linuxFilter)
+--deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libcaffe2.so", linuxFilter)
+--deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libcaffe2_gpu.so", linuxFilter)
+--deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libtorch.so", linuxFilter)
+--deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libtorch.so.1", linuxFilter)
+--deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libgomp-8bba0e50.so.1", linuxFilter)
+--deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libnvToolsExt-3965bdd0.so.1", linuxFilter)
+--deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libcudart-1581fefa.so.10.0", linuxFilter)
+
+-- This set of files references a from-source build of libtorch
+local deploy_libtorch_set = {}
+deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libc10_cuda.so", linuxFilter)
+deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libc10.so", linuxFilter)
+deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libcaffe2.so", linuxFilter)
+deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libcaffe2_gpu.so", linuxFilter)
+deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libtorch.so", linuxFilter)
+deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libtorch.so.1", linuxFilter)
+deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libmkl_intel_lp64.so", linuxFilter)
+deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libmkl_gnu_thread.so", linuxFilter)
+deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libmkl_core.so", linuxFilter)
+deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libnccl.so.2", linuxFilter)
 
 local torch = ExternalLibrary {
 	Name = "torch",
-	Depends = {
-		deploy_libtorch_c10_cuda,
-		deploy_libtorch_c10,
-		deploy_libtorch_caffe2,
-		deploy_libtorch_torch,
-	},
+	Depends = deploy_libtorch_set,
 	Propagate = {
 		Env = {
 			LIBPATH = {
-				{ "deps/torch/lib"; Config = linuxFilter },
+				--{ "deps/torch/lib"; Config = linuxFilter },
+				{ torch_root .. "/lib"; Config = linuxFilter },
 			},
 		},
 		Libs = {
 			{ "torch", "caffe2", "c10", "c10_cuda", "nvrtc"; Config = linuxFilter },
 		},
 		Includes = {
-			"deps/torch/include",
+			--"deps/torch/include",
+			torch_root .. "/include",
 		},
 	},
 }
@@ -1012,7 +1059,8 @@ local RoadProcessor = Program {
 	Name = "RoadProcessor",
 	Depends = {
 		--winCrt, Video, gfx, opencv, ffmpeg, pal, libjpeg_turbo, png, stb, tsf, agg, glfw, lz4, proj4
-		winCrt, Video, gfx, opencv, ffmpeg, torch, CUDA, pal, libjpeg_turbo, png, stb, tsf, agg, lz4, proj4
+		winCrt, Video, gfx, opencv, ffmpeg, torch, CUDA, pal, libjpeg_turbo, png, stb, tsf, agg, lz4, proj4,
+		rpathLink -- We need to link with rpath in order to allow libraries such as libmkl_intel_lp64.so to be discovered
 	},
 	Env = {
 		--PROGOPTS = { "/SUBSYSTEM:CONSOLE"; Config = winFilter },

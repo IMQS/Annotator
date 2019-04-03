@@ -24,35 +24,35 @@ namespace roadproc {
 class VideoStitcher {
 public:
 	// Running state
-	int              VideoWidth  = 0;
-	int              VideoHeight = 0;
-	gfx::Image       Frame;
-	gfx::Image       Flat;
-	gfx::Image       FlatPrev;
-	gfx::Image       Splat;
-	gfx::Image       FullFlat;           // If EnableFullFlatOutput is true, then FullFlat contains the entire frustum, with perspective removed
-	gfx::Image       BrightnessAdjuster; // This is dynamically adjusted
-	gfx::Image       VignetteAdjust;     // This is computed during initialization, and then held constant
-	gfx::Image       DistortionAdjust;   // This is computed during initialization, and then held constant
-	video::VideoFile Video;
-	video::NVVideo   NVVid;
-	video::IVideo*   ActiveVideo = nullptr;
-	FlattenParams    FP;
-	OpticalFlow      Flow;
-	Frustum          Frustum;
-	double           BlackenPercentage = 0;   // If non-zero, then blacken left/right edges, so they don't make it into the stitched footage
-	int              FlatWidth         = 0;   // computed according to perspective params and video size
-	int              FlatHeight        = 550; // Only perform matching on this window, aligned to the bottom of the flattened frame
-	int              MatchHeight       = 150; // Only perform matching from the bottom matchHeight pixels of the 'next' flattened frame
-	int              PixelsPerMeshCell = 60;  // Stride between each matching grid cell
-	time::Duration   RemainingTime;
-	double           FrameTime                   = 0; // Absolute video time in seconds, of most recently decoded frame
-	size_t           FrameNumber                 = 0;
-	double           StartVideoAt                = 0;     // Seeks first frame of video to X seconds of first video.
-	bool             EnableFullFlatOutput        = false; // If true, then FullFlat contains the full flat image output
-	bool             EnableCPUPerspectiveRemoval = false; // CPU path supports lens correction, but it's slower
-	bool             EnableBrightnessAdjuster    = true;
-	bool             EnableNVVideo               = true;
+	int               VideoWidth  = 0;
+	int               VideoHeight = 0;
+	gfx::Image        Frame;
+	gfx::Image        Flat;
+	gfx::Image        FlatPrev;
+	gfx::Image        Splat;
+	gfx::Image        FullFlat;           // If EnableFullFlatOutput is true, then FullFlat contains the entire frustum, with perspective removed
+	gfx::Image        BrightnessAdjuster; // This is dynamically adjusted
+	gfx::Image        VignetteAdjust;     // This is computed during initialization, and then held constant
+	gfx::Image        DistortionAdjust;   // This is computed during initialization, and then held constant
+	video::VideoFile  Video;
+	video::NVVideo    NVVid;
+	video::IVideo*    ActiveVideo = nullptr;
+	FlattenParams     FP;
+	OpticalFlow       Flow;
+	roadproc::Frustum Frustum;
+	double            BlackenPercentage = 0;   // If non-zero, then blacken left/right edges, so they don't make it into the stitched footage
+	int               FlatWidth         = 0;   // computed according to perspective params and video size
+	int               FlatHeight        = 550; // Only perform matching on this window, aligned to the bottom of the flattened frame
+	int               MatchHeight       = 150; // Only perform matching from the bottom matchHeight pixels of the 'next' flattened frame
+	int               PixelsPerMeshCell = 60;  // Stride between each matching grid cell
+	time::Duration    RemainingTime;
+	double            FrameTime                   = 0; // Absolute video time in seconds, of most recently decoded frame
+	size_t            FrameNumber                 = 0;
+	double            StartVideoAt                = 0;     // Seeks first frame of video to X seconds of first video.
+	bool              EnableFullFlatOutput        = false; // If true, then FullFlat contains the full flat image output
+	bool              EnableCPUPerspectiveRemoval = false; // CPU path supports lens correction, but it's slower
+	bool              EnableBrightnessAdjuster    = true;
+	bool              EnableNVVideo               = true;
 
 	// Output
 	bool                                       EnableDebugPrint  = false;

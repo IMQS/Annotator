@@ -47,3 +47,4 @@
 #undef None
 
 #include <torch/script.h>
+#include <torch/csrc/api/include/torch/utils.h>

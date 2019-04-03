@@ -1,9 +1,11 @@
-#FROM ubuntu:18.04
-#FROM nvidia/cuda:9.2-cudnn7-devel-ubuntu18.04
-FROM nvidia/cudagl:9.2-devel-ubuntu18.04
+# Bring in libtorch, so that we can suck it's files out later
+FROM imqs/libtorch
+
+FROM nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04
+
+COPY --from=0 /usr/local/libtorch/ /usr/local/libtorch/
 
 RUN apt-get update
-
 RUN apt-get install -y \
 	git \
 	yasm \
@@ -13,6 +15,7 @@ RUN apt-get install -y \
     libcurl4-openssl-dev \
     liblz4-dev \
     zlib1g-dev \
+    libpng-dev \
     libjpeg-turbo8-dev \
     libproj-dev \
     libunwind-dev \
@@ -74,6 +77,19 @@ RUN cd /build/libjpeg-turbo \
 	&& make -j \
 	&& make install
 
+# TODO: move these installs to the top (when you're iterating on this again)
+RUN apt-get install -y libegl1-mesa-dev
 
-# TODO: Move these up to the top list
-RUN apt-get install -y libpng-dev
+# Sigh! This doesn't work, because you need to be logged in to download this SDK
+# So instead, we just embed those files inside our git repo.
+#RUN cd /tmp \
+# && curl -o nvideo.zip https://developer.nvidia.com/designworks/video_codec_sdk/downloads/v9.0 \
+# && unzip nvideo.zip \
+# && cd Video_Codec_SDK_* \
+# && cp Lib/linux/stubs/x86_64/libnvcuvid.so /usr/local/lib \
+# && cp Lib/linux/stubs/x86_64/libnvidia-encode.so /usr/local/lib
+
+COPY build/docker/roads-cppbuild/libnvcuvid.so /usr/local/lib/
+COPY build/docker/roads-cppbuild/libnvidia-encode.so /usr/local/lib/
+
+
