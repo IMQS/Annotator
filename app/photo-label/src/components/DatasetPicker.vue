@@ -1,10 +1,7 @@
 <template>
 	<div>
-		<div style='margin-bottom: 5px; font-size: 18px'>Dataset</div>
-		<div style='margin-left: 10px'>
-			<div v-for='d of allDatasets' v-bind:key='d'>
-				<label style='cursor: pointer; line-height: 1.3'><input type='radio' name='dataset' v-model='dataset' :value='d' @click="$emit('change', d)" />{{d}}</label>
-			</div>
+		<div v-for='d of allDatasets' v-bind:key='d'>
+			<label><input type='radio' name='dataset' v-model='dataset' :value='d' @click="$emit('change', d)" />{{d}}</label>
 		</div>
 	</div>
 </template>
@@ -45,6 +42,8 @@ export default class DatasetPicker extends Vue {
 				this.allDatasets = jr as string[];
 				// The word 'Everything' is hardcoded into Label.vue
 				this.allDatasets.splice(0, 0, 'Everything');
+				//for (let i = 0; i < 100; i++)
+				//	this.allDatasets.push("foobar-bds0-ds-ds-ds-d-sdsssssssssss" + i);
 				this.restorePrevious();
 			});
 		});
@@ -53,4 +52,11 @@ export default class DatasetPicker extends Vue {
 </script>
 
 <style lang="scss" scoped>
+label {
+	cursor: pointer;
+	line-height: 1.2;
+	font-size: 14px;
+	display: flex;
+	justify-items: center;
+}
 </style>

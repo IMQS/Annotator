@@ -31,7 +31,8 @@
 				-->
 			</div>
 			<div class='controlBottom'>
-				<dataset-picker @change='onDatasetChanged' />
+				<div style='margin-bottom: 10px'>Dataset</div>
+				<dataset-picker @change='onDatasetChanged' style='max-height: 100%; overflow: auto; margin-left: 5px' />
 			</div>
 		</div>
 		<div class='canvasContainer'>
@@ -336,20 +337,25 @@ export default class Label extends Vue {
 	height: 100%;
 }
 .control {
-	margin: 0.5em;
+	padding: 0.5em;
 	width: 20rem;
 	display: flex;
 	flex-direction: column;
-	//justify-content: space-around;
+	height: 100%;
+	box-sizing: border-box;
 }
 .controlTop {
 	display: flex;
 	flex-direction: column;
+	box-sizing: border-box;
+	flex: 0 0 auto;
 }
 .controlBottom {
 	display: flex;
 	flex-direction: column;
-	margin-top: 30px;
+	margin-top: 15px;
+	box-sizing: border-box;
+	flex: 0 1 auto;
 }
 .labelRow {
 	//margin: 0.2em 0;
