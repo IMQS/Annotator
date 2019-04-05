@@ -40,6 +40,7 @@ export default class DatasetPicker extends Vue {
 		fetch('/api/datasets').then((r) => {
 			r.json().then((jr) => {
 				this.allDatasets = jr as string[];
+				this.allDatasets = this.allDatasets.sort();
 				// The word 'Everything' is hardcoded into Label.vue
 				this.allDatasets.splice(0, 0, 'Everything');
 				//for (let i = 0; i < 100; i++)
