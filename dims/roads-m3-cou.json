@@ -37,5 +37,25 @@
             4,
             5
         ]
+    },
+    "tar_vci": {
+        "explain": "Overall quality of tar road",
+        "values": [
+            1,
+            2,
+            3,
+            4,
+            5
+        ]
+    },
+    "gravel_vci": {
+        "explain": "Overall quality of gravel road",
+        "values": [
+            1,
+            2,
+            3,
+            4,
+            5
+        ]
     }
 }
