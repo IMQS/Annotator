@@ -1,33 +1,38 @@
 <template>
 	<div class="outer">
 		<div class='control'>
-			<div class='titleBar'>
-				<router-link to='/' class='backBtn'>⬅</router-link>
-				<div class='title'>{{dim ? dim.niceName : 'none'}}</div>
-			</div>
-			<div style='display: flex; margin-bottom: 0.5em'>
-				<div class='skLeft'>⌨️</div>
-				<div class='skRight'>value</div>
-			</div>
-			<div v-if='dim'>
-				<!-- <div v-for='val in dim.values' :key='val' style='display: flex' class='labelRow' :class='{activeLabelRow: activeLabel === val}'> -->
-				<div v-for='val in dim.values' :key='val' class='labelRow'>
-					<div class='skLeft'>{{dim.valueToShortcutKey[val]}}</div>
-					<div class='skRight'>{{val}}</div>
+			<div class='controlTop'>
+				<div class='titleBar'>
+					<router-link to='/' class='backBtn'>⬅</router-link>
+					<div class='title'>{{dim ? dim.niceName : 'none'}}</div>
 				</div>
-				<div class='labelRow'><div class='skLeft'>space</div><div class='skRight' style='color: #a55'>remove label</div></div>
+				<div style='display: flex; margin-bottom: 0.5em'>
+					<div class='skLeft'>⌨️</div>
+					<div class='skRight'>value</div>
+				</div>
+				<div v-if='dim'>
+					<!-- <div v-for='val in dim.values' :key='val' style='display: flex' class='labelRow' :class='{activeLabelRow: activeLabel === val}'> -->
+					<div v-for='val in dim.values' :key='val' class='labelRow'>
+						<div class='skLeft'>{{dim.valueToShortcutKey[val]}}</div>
+						<div class='skRight'>{{val}}</div>
+					</div>
+					<div class='labelRow'><div class='skLeft'>space</div><div class='skRight' style='color: #a55'>remove label</div></div>
+				</div>
+				<div style='margin: 1rem 0.5rem; font-size: 0.85rem; color: #777;'>
+					Press the shortcut key in the left column to label the image.
+					<br><br>
+					Press left/right keys to scan through the images.
+					<br><br>
+					Hold down <em>CTRL</em> and press left/right to apply the same label to the previous/next image.
+				</div>
+				<!--
+				<div style='display: flex'><div class='skLeft'>←</div><div class='skRight'>previous</div></div>
+				<div style='display: flex'><div class='skLeft'>→</div><div class='skRight'>next</div></div>
+				-->
 			</div>
-			<div style='margin: 1rem 0.5rem; font-size: 0.85rem; color: #777;'>
-				Press the shortcut key in the left column to label the image.
-				<br><br>
-				Press left/right keys to scan through the images.
-				<br><br>
-				Hold down <em>CTRL</em> and press left/right to apply the same label to the previous/next image.
+			<div class='controlBottom'>
+				<dataset-picker @change='onDatasetChanged' />
 			</div>
-			<!--
-			<div style='display: flex'><div class='skLeft'>←</div><div class='skRight'>previous</div></div>
-			<div style='display: flex'><div class='skLeft'>→</div><div class='skRight'>next</div></div>
-			-->
 		</div>
 		<div class='canvasContainer'>
 			<canvas class='imgCanvas' ref='imgCanvas' :style='canvasStyle'>
@@ -55,19 +60,23 @@
 import { Prop, Watch, Component, Vue } from 'vue-property-decorator';
 import { Dimension, DimensionSet } from '@/label';
 import ImageScroller from '@/components/ImageScroller.vue';
+import DatasetPicker from '@/components/DatasetPicker.vue';
 
 @Component({
 	components: {
 		ImageScroller,
+		DatasetPicker,
 	},
 })
 export default class Label extends Vue {
 	@Prop(String) dimid!: string;
 	allPhotos: string[] = [];
+	selectedPhotos: string[] = []; // a subset of the photos in allPhotos, which match the prefix 'dataset'
+	dataset: string = '';
 	currentImgEl: HTMLImageElement = document.createElement('img');
 	dimensions: DimensionSet = new DimensionSet();
 	resizeDrawTimer: number = 0;
-	imgIndex: number = -1; // index in allPhotos
+	imgIndex: number = -1; // index in selectedPhotos
 	usableFramePortion: number = 1 / 3;
 	brightness: number = 0.5;
 	//activeLabel: string = ''; // eg 1..5, or 'gravel', 'tar, etc.
@@ -92,9 +101,9 @@ export default class Label extends Vue {
 	}
 
 	get scrollPos(): number {
-		if (this.allPhotos.length === 0)
+		if (this.selectedPhotos.length === 0)
 			return 0;
-		return this.imgIndex / (this.allPhotos.length - 1);
+		return this.imgIndex / (this.selectedPhotos.length - 1);
 	}
 
 	get labelTxtFontSize(): string {
@@ -105,13 +114,13 @@ export default class Label extends Vue {
 	}
 
 	get currentImgName(): string {
-		if (this.imgIndex >= this.allPhotos.length)
+		if (this.imgIndex >= this.selectedPhotos.length)
 			return '';
-		return this.allPhotos[this.imgIndex];
+		return this.selectedPhotos[this.imgIndex];
 	}
 
 	get currentImgSrc(): string {
-		if (this.imgIndex >= this.allPhotos.length)
+		if (this.imgIndex >= this.selectedPhotos.length)
 			return '';
 		return '/api/get_image?image=' + encodeURIComponent(this.imgPath);
 	}
@@ -123,8 +132,8 @@ export default class Label extends Vue {
 	}
 
 	get imgPath(): string {
-		if (this.imgIndex >= 0 && this.imgIndex < this.allPhotos.length)
-			return this.allPhotos[this.imgIndex];
+		if (this.imgIndex >= 0 && this.imgIndex < this.selectedPhotos.length)
+			return this.selectedPhotos[this.imgIndex];
 		else
 			return '';
 	}
@@ -144,7 +153,7 @@ export default class Label extends Vue {
 		// showing any updates. All things considered, it's probably a good thing to make sure
 		// that every single frame flashes before the user's eyes when he is labelling.
 		if (seek && !this.waitingForImg) {
-			this.imgIndex = Math.max(0, Math.min(this.imgIndex + seek, this.allPhotos.length - 1));
+			this.imgIndex = Math.max(0, Math.min(this.imgIndex + seek, this.selectedPhotos.length - 1));
 			if (ev.ctrlKey)
 				this.setLabel(this.imgLabel);
 		} else if (this.dim) {
@@ -168,8 +177,30 @@ export default class Label extends Vue {
 	}
 
 	onScroll(pos: number) {
-		let i = pos * this.allPhotos.length;
-		this.imgIndex = Math.floor(Math.max(0, Math.min(i, this.allPhotos.length - 1)));
+		let i = pos * this.selectedPhotos.length;
+		this.imgIndex = Math.floor(Math.max(0, Math.min(i, this.selectedPhotos.length - 1)));
+	}
+
+	onDatasetChanged(dataset: string) {
+		this.dataset = dataset;
+		this.refreshSelectedPhotos();
+	}
+
+	refreshSelectedPhotos() {
+		if (this.dataset === '' || this.dataset === 'Everything') {
+			this.selectedPhotos = this.allPhotos;
+			this.imgIndex = 0;
+			this.onCurrentImgChanged(); // force a change, because imgIndex doesn't mean what it used to
+			return;
+		}
+		let s = [];
+		for (let p of this.allPhotos) {
+			if (p.startsWith(this.dataset))
+				s.push(p);
+		}
+		this.selectedPhotos = s;
+		this.imgIndex = 0;
+		this.onCurrentImgChanged(); // force a change, because imgIndex doesn't mean what it used to
 	}
 
 	setLabel(val: string) {
@@ -177,10 +208,19 @@ export default class Label extends Vue {
 		this.imgLabel = val;
 		if (this.dim === null)
 			return;
-		let apiURL = '/api/db/set_label?image=' + encodeURIComponent(this.imgPath) + '&dimension=' + encodeURIComponent(this.dim.id) + '&value=' + encodeURIComponent(this.imgLabel);
+		let apiURL = '/api/db/set_label?image=' + encodeURIComponent(this.imgPath) +
+			'&author=' + encodeURIComponent(localStorage.getItem('author') || '') +
+			'&dimension=' + encodeURIComponent(this.dim.id) +
+			'&value=' + encodeURIComponent(this.imgLabel);
 		fetch(apiURL, { method: 'POST' }).then((response) => {
-			if (!response.ok)
-				alert(response.status + ' ' + response.statusText);
+			if (!response.ok) {
+				this.imgLabel = '';
+				response.text().then((txt) => {
+					alert(response.status + ' ' + response.statusText + ':\n\n' + txt);
+				}).catch((reason) => {
+					alert(response.status + ' ' + response.statusText);
+				});
+			}
 		}).catch((reason) => {
 			alert(reason);
 		});
@@ -263,7 +303,8 @@ export default class Label extends Vue {
 		fetch('/api/list_images').then((r) => {
 			r.json().then((jr) => {
 				this.allPhotos = jr as string[];
-				if (this.allPhotos.length !== 0) {
+				this.refreshSelectedPhotos();
+				if (this.selectedPhotos.length !== 0) {
 					this.imgIndex = 0;
 					this.draw();
 				}
@@ -299,6 +340,16 @@ export default class Label extends Vue {
 	width: 20rem;
 	display: flex;
 	flex-direction: column;
+	//justify-content: space-around;
+}
+.controlTop {
+	display: flex;
+	flex-direction: column;
+}
+.controlBottom {
+	display: flex;
+	flex-direction: column;
+	margin-top: 30px;
 }
 .labelRow {
 	//margin: 0.2em 0;

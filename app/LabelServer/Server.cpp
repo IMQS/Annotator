@@ -31,7 +31,25 @@ Error Server::Initialize(uberlog::Logger* log, std::string photoDir, std::string
 		photoDir.erase(photoDir.end() - 1);
 	PhotoRoot = photoDir;
 
-	auto err = DB.Open(log, photoDir);
+	// Find all directories inside PhotoRoot. Each one of these is a 'dataset'
+	// We go one level deep.
+	AllDatasets.clear();
+	auto err = os::FindFiles(photoDir, [&](const os::FindFileItem& item) -> bool {
+		if (item.IsDir) {
+			auto relDir = item.FullPath().substr(photoDir.size() + 1);
+			relDir      = strings::Replace(relDir, "\\", "/");
+			auto depth  = strings::Split(relDir, '/').size();
+			//tsf::print("%-30v %v\n", relDir, item.FullPath());
+			AllDatasets.push_back(relDir);
+			return depth <= 1;
+		} else {
+			return true;
+		}
+	});
+	if (!err.OK())
+		return err;
+
+	err = DB.Open(log, photoDir);
 	if (!err.OK())
 		return err;
 
@@ -63,6 +81,8 @@ void Server::ListenAndRun(int port) {
 	server.ListenAndRun("*", port, [&](phttp::Response& w, phttp::RequestPtr r) {
 		if (r->Path == "/api/dimensions") {
 			SendJson(w, DimensionsRaw);
+		} else if (r->Path == "/api/datasets") {
+			SendJson(w, AllDatasets);
 		} else if (r->Path == "/api/list_images") {
 			SendJson(w, AllPhotos);
 		} else if (r->Path == "/api/get_image") {
@@ -215,29 +235,34 @@ Error Server::LoadDimensionsFile(std::string dimensionsFile) {
 }
 
 Error Server::ApiSetLabel(phttp::Response& w, phttp::RequestPtr r, dba::Tx* tx) {
-	auto image = r->QueryVal("image");
-	auto dim   = r->QueryVal("dimension");
-	auto val   = r->QueryInt("value");
+	auto image  = r->QueryVal("image");
+	auto dim    = r->QueryVal("dimension");
+	auto val    = r->QueryInt("value");
+	auto author = r->QueryVal("author");
 	if (image == "")
 		return Error("image not be empty");
 
 	if (dim == "")
 		return Error("dimension may not be empty");
 
+	if (author == "")
+		return Error("author may not be empty");
+
 	bool isDelete = r->QueryVal("value") == "";
 
-	auto err = tx->Exec("INSERT OR IGNORE INTO sample (image_path) VALUES (?)", {r->QueryVal("image")});
+	auto err = tx->Exec("INSERT OR IGNORE INTO sample (image_path) VALUES (?)", {image});
 	if (!err.OK())
 		return err;
 	int64_t id = 0;
-	err        = dba::CrudOps::Query(tx, "SELECT id FROM sample WHERE image_path = ?", {r->QueryVal("image")}, id);
+	err        = dba::CrudOps::Query(tx, "SELECT id FROM sample WHERE image_path = ?", {image}, id);
 	if (!err.OK())
 		return err;
 
 	if (isDelete)
-		err = tx->Exec("DELETE FROM label WHERE sample_id = ? AND dimension = ?", {id, r->QueryVal("dimension")});
+		err = tx->Exec("DELETE FROM label WHERE sample_id = ? AND dimension = ?", {id, dim});
 	else
-		err = tx->Exec("INSERT OR REPLACE INTO label (sample_id, dimension, value) VALUES (?, ?, ?)", {id, r->QueryVal("dimension"), r->QueryVal("value")});
+		err = tx->Exec("INSERT OR REPLACE INTO label (sample_id, dimension, value, author, modified_at) VALUES (?, ?, ?, ?, ?)",
+		               {id, dim, val, author, time::Now()});
 
 	if (!err.OK())
 		return err;

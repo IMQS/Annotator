@@ -10,6 +10,9 @@ const char* LabelDB::Migrations[] = {
     "CREATE TABLE sample (id INTEGER PRIMARY KEY, image_path TEXT NOT NULL)",
     "CREATE UNIQUE INDEX idx_sample_image_path ON sample (image_path)",
     "CREATE TABLE label (sample_id INTEGER NOT NULL, dimension TEXT NOT NULL, value INTEGER NOT NULL, PRIMARY KEY(sample_id, dimension))",
+    "",
+    "ALTER TABLE label ADD COLUMN author TEXT",
+    "ALTER TABLE label ADD COLUMN modified_at TIMESTAMP",
     nullptr,
 };
 

@@ -11,9 +11,9 @@
             "program": "${workspaceFolder}/../../t2-output/linux-clang-debug-default/LabelServer",
             "args": [
                 "/home/ben/mldata/gopro",
-                "/home/ben/dev/Annotator/app/LabelServer/dimensions.json",
-                "--export",
-                "/home/ben/mldata/train",
+                "/home/ben/dev/Annotator/dims/roads-m3-cou.json",
+                //"--export",
+                //"/home/ben/mldata/train",
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

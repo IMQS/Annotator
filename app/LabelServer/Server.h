@@ -28,6 +28,7 @@ public:
 	std::string              PhotoRoot;
 	std::string              StaticRoot; // root of static files (ie the /dist directory that is output by "npm run build" from the /app/photo-label project)
 	std::vector<std::string> AllPhotos;
+	std::vector<std::string> AllDatasets;
 	nlohmann::json           DimensionsRaw;
 	//ohash::map<std::string, Dimension> Dimensions; // Key is the name of dimension (eg road_type)
 	uberlog::Logger* Log = nullptr;
