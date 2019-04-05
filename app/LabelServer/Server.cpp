@@ -237,7 +237,7 @@ Error Server::LoadDimensionsFile(std::string dimensionsFile) {
 Error Server::ApiSetLabel(phttp::Response& w, phttp::RequestPtr r, dba::Tx* tx) {
 	auto image  = r->QueryVal("image");
 	auto dim    = r->QueryVal("dimension");
-	auto val    = r->QueryInt("value");
+	auto val    = r->QueryVal("value");
 	auto author = r->QueryVal("author");
 	if (image == "")
 		return Error("image not be empty");
@@ -248,7 +248,7 @@ Error Server::ApiSetLabel(phttp::Response& w, phttp::RequestPtr r, dba::Tx* tx) 
 	if (author == "")
 		return Error("author may not be empty");
 
-	bool isDelete = r->QueryVal("value") == "";
+	bool isDelete = val == "";
 
 	auto err = tx->Exec("INSERT OR IGNORE INTO sample (image_path) VALUES (?)", {image});
 	if (!err.OK())
