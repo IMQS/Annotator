@@ -31,8 +31,8 @@ export default class DatasetPicker extends Vue {
 		}
 		if (!found && this.allDatasets.length !== 0) {
 			this.dataset = this.allDatasets[0];
-			this.$emit('change', this.dataset);
 		}
+		this.$emit('change', this.dataset);
 	}
 
 	mounted() {

@@ -25,8 +25,8 @@ export default class ImageScroller extends Vue {
 		return (this.pos * 100) + '%';
 	}
 
-	emitChange(pos: number) {
-		this.$emit('change', pos);
+	emitChange(newPos: number) {
+		this.$emit('change', newPos);
 	}
 
 	pointermove(ev: PointerEvent) {

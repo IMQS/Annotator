@@ -180,6 +180,8 @@ export default class Label extends Vue {
 	onScroll(pos: number) {
 		let i = pos * this.selectedPhotos.length;
 		this.imgIndex = Math.floor(Math.max(0, Math.min(i, this.selectedPhotos.length - 1)));
+		if (this.imgIndex < this.selectedPhotos.length)
+			localStorage.setItem('imgName', this.selectedPhotos[this.imgIndex]);
 	}
 
 	onDatasetChanged(dataset: string) {
@@ -187,10 +189,26 @@ export default class Label extends Vue {
 		this.refreshSelectedPhotos();
 	}
 
+	restoreImgIndexFromLocalStorage() {
+		let old = localStorage.getItem('imgName');
+		if (old === null) {
+			this.imgIndex = 0;
+			return;
+		}
+		let list = this.selectedPhotos;
+		for (let i = 0; i < list.length; i++) {
+			if (list[i] === old) {
+				this.imgIndex = i;
+				return;
+			}
+		}
+		this.imgIndex = 0;
+	}
+
 	refreshSelectedPhotos() {
 		if (this.dataset === '' || this.dataset === 'Everything') {
 			this.selectedPhotos = this.allPhotos;
-			this.imgIndex = 0;
+			this.restoreImgIndexFromLocalStorage();
 			this.onCurrentImgChanged(); // force a change, because imgIndex doesn't mean what it used to
 			return;
 		}
@@ -200,7 +218,7 @@ export default class Label extends Vue {
 				s.push(p);
 		}
 		this.selectedPhotos = s;
-		this.imgIndex = 0;
+		this.restoreImgIndexFromLocalStorage();
 		this.onCurrentImgChanged(); // force a change, because imgIndex doesn't mean what it used to
 	}
 
@@ -306,7 +324,7 @@ export default class Label extends Vue {
 				this.allPhotos = jr as string[];
 				this.refreshSelectedPhotos();
 				if (this.selectedPhotos.length !== 0) {
-					this.imgIndex = 0;
+					this.restoreImgIndexFromLocalStorage();
 					this.draw();
 				}
 			});
