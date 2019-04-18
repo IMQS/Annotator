@@ -3,6 +3,30 @@
 
 using namespace std;
 
+/*
+Some debug tests
+curl "localhost:8080/api/db/get_labels?image=2019/2019-03-08/100GOPRO/G0013117.JPG"
+
+Example response from /api/db/get_labels:
+{
+	"regions": {
+		"0": {
+			"dims": {
+				"gravel_base_stones": "3"
+			}
+		},
+		"1": {
+			"region": "[[12,13,56,34,89,23]]",
+			"dims": {
+				"traffic_sign": "stop",
+				"traffic_sign_quality": "2",
+			}
+		}
+	}
+}
+
+*/
+
 namespace imqs {
 namespace label {
 
@@ -30,6 +54,8 @@ Error Server::Initialize(uberlog::Logger* log, std::string photoDir, std::string
 	if (strings::EndsWith(photoDir, "/") || strings::EndsWith(photoDir, "\\"))
 		photoDir.erase(photoDir.end() - 1);
 	PhotoRoot = photoDir;
+
+	Log->Info("Scanning photos in %v", photoDir);
 
 	// Find all directories inside PhotoRoot. Each one of these is a 'dataset'
 	// We go one level deep.
@@ -234,11 +260,34 @@ Error Server::LoadDimensionsFile(std::string dimensionsFile) {
 	return Error();
 }
 
+// Possible region combinations and their meanings
+// |-----------|-----------|------------------------------------------|
+// | region_id | region    | action                                   |
+// |-----------|-----------|------------------------------------------|
+// | non-zero  | empty     | Delete this region and all labels for it |
+// | non-zero  | non-empty | Update an existing region                |
+// | zero      | empty     | Label applies to the entire image        |
+// | zero      | non-empty | Create new region                        |
+// |-----------|-----------|------------------------------------------|
+// Why do we insist on using zero as a null value for RegionID, instead of
+// just using SQL NULL?
+// The reason is because the UNIQUE constraint on (image_path, region_id) doesn't
+// get enforced if region_id is NULL. Specifically, you can insert multiple records
+// of the form (img_path_x, null).
+// From the SQLite docs:
+//     For the purposes of unique indices, all NULL values are considered different from
+//     all other NULL values and are thus unique. This is one of the two possible
+//     interpretations of the SQL-92 standard (the language in the standard is ambiguous)
+//     and is the interpretation followed by PostgreSQL, MySQL, Firebird, and Oracle.
+//     Informix and Microsoft SQL Server follow the other interpretation of the standard.
+// Return: The ID of the region.
 Error Server::ApiSetLabel(phttp::Response& w, phttp::RequestPtr r, dba::Tx* tx) {
-	auto image  = r->QueryVal("image");
-	auto dim    = r->QueryVal("dimension");
-	auto val    = r->QueryVal("value");
-	auto author = r->QueryVal("author");
+	auto image    = r->QueryVal("image");
+	auto regionID = r->QueryInt64("region_id");
+	auto region   = r->QueryVal("region");
+	auto dim      = r->QueryVal("dimension");
+	auto val      = r->QueryVal("value");
+	auto author   = r->QueryVal("author");
 	if (image == "")
 		return Error("image not be empty");
 
@@ -248,44 +297,121 @@ Error Server::ApiSetLabel(phttp::Response& w, phttp::RequestPtr r, dba::Tx* tx) 
 	if (author == "")
 		return Error("author may not be empty");
 
-	bool isDelete = val == "";
-
-	auto err = tx->Exec("INSERT OR IGNORE INTO sample (image_path) VALUES (?)", {image});
-	if (!err.OK())
-		return err;
-	int64_t id = 0;
-	err        = dba::CrudOps::Query(tx, "SELECT id FROM sample WHERE image_path = ?", {image}, id);
-	if (!err.OK())
-		return err;
-
-	if (isDelete)
-		err = tx->Exec("DELETE FROM label WHERE sample_id = ? AND dimension = ?", {id, dim});
+	// See the truth table in the comments to this function
+	enum class RegionMode {
+		Delete,
+		Update,
+		WholeImage,
+		Create,
+	} regionMode;
+	if (regionID != 0 && region == "")
+		regionMode = RegionMode::Delete;
+	else if (regionID != 0 && region != "")
+		regionMode = RegionMode::Update;
+	else if (regionID == 0 && region == "")
+		regionMode = RegionMode::WholeImage;
+	else if (regionID == 0 && region != "")
+		regionMode = RegionMode::Create;
 	else
-		err = tx->Exec("INSERT OR REPLACE INTO label (sample_id, dimension, value, author, modified_at) VALUES (?, ?, ?, ?, ?)",
-		               {id, dim, val, author, time::Now()});
+		IMQS_DIE(); // this should be unreachable
 
+	int64_t sampleID        = 0;
+	bool    deleteThisLabel = val == ""; // delete this label (but not necessarily the region)
+
+	if (regionMode == RegionMode::WholeImage) {
+		auto err = tx->Exec("INSERT OR IGNORE INTO sample (image_path, region_id) VALUES (?, 0)", {image});
+		if (!err.OK())
+			return err;
+	} else if (regionMode == RegionMode::Create) {
+		int64_t maxRegionID = 0;
+		auto    err         = dba::CrudOps::Query(tx, "SELECT max(region_id) FROM sample WHERE image_path = ?", {image}, maxRegionID);
+		if (!err.OK())
+			return err;
+		regionID = maxRegionID + 1;
+		err      = tx->Exec("INSERT INTO sample (image_path, region_id, region, author, modified_at) VALUES (?, ?, ?, ?, ?)", {image, regionID, region, author, time::Now()});
+		if (!err.OK())
+			return err;
+	} else if (regionMode == RegionMode::Update) {
+		auto err = tx->Exec("UPDATE sample SET region = ?, author = ?, modified_at = ? WHERE image_path = ? AND region_id = ?", {region, author, time::Now(), image, regionID});
+		if (!err.OK())
+			return err;
+	} else if (regionMode == RegionMode::Delete) {
+		// Nothing to do here, we'll take action later
+	}
+
+	auto err = dba::CrudOps::Query(tx, "SELECT id FROM sample WHERE image_path = ? AND region_id = ?", {image, regionID}, sampleID);
 	if (!err.OK())
 		return err;
+
+	if (regionMode == RegionMode::Delete) {
+		err = tx->Exec("DELETE FROM label WHERE sample_id = ?", {sampleID});
+		if (!err.OK())
+			return err;
+		err = tx->Exec("DELETE FROM sample WHERE id = ?", {sampleID});
+		if (!err.OK())
+			return err;
+	} else {
+		Error err;
+		if (deleteThisLabel)
+			err = tx->Exec("DELETE FROM label WHERE sample_id = ? AND dimension = ?", {sampleID, dim});
+		else
+			err = tx->Exec("INSERT OR REPLACE INTO label (sample_id, dimension, value, author, modified_at) VALUES (?, ?, ?, ?, ?)",
+			               {sampleID, dim, val, author, time::Now()});
+		if (!err.OK())
+			return err;
+	}
+
+	w.SetHeader("Content-Type", "text/plain");
+	w.Body = tsf::fmt("%v", regionID);
 
 	return Error();
 }
 
 Error Server::ApiGetLabels(phttp::Response& w, phttp::RequestPtr r, dba::Tx* tx) {
-	int64_t id  = 0;
-	auto    err = dba::CrudOps::Query(tx, "SELECT id FROM sample WHERE image_path = ?", {r->QueryVal("image")}, id);
-	if (err == ErrEOF) {
+	string                       idList = "(";
+	auto                         rows   = tx->Query("SELECT id, region_id, region FROM sample WHERE image_path = ?", {r->QueryVal("image")});
+	int64_t                      nID    = 0;
+	ohash::map<int64_t, int64_t> sampleIDToRegionID;
+	ohash::map<int64_t, string>  sampleIDToRegion;
+	for (auto row : rows) {
+		int64_t sampleID = 0;
+		int64_t regionID = 0;
+		string  region;
+		auto    err = row.Scan(sampleID, regionID, region);
+		if (!err.OK())
+			return err;
+		sampleIDToRegionID.insert(sampleID, regionID);
+		sampleIDToRegion.insert(sampleID, region);
+		idList += tsf::fmt("%v,", sampleID);
+		nID++;
+	}
+	if (!rows.OK())
+		return rows.Err();
+	idList.erase(idList.end() - 1);
+	idList += ")";
+
+	if (nID == 0) {
 		SendJson(w, nlohmann::json::object());
 		return Error();
 	}
+
 	nlohmann::json resp;
-	auto           rows = tx->Query("SELECT dimension, value FROM label WHERE sample_id = ?", {id});
+	rows           = tx->Query(tsf::fmt("SELECT sample_id, dimension, value FROM label WHERE sample_id IN %v", idList).c_str());
+	auto& jRegions = resp["regions"];
 	for (auto row : rows) {
-		string dim;
-		string val;
-		err = row.Scan(dim, val);
+		int64_t sampleID = 0;
+		string  dim;
+		string  val;
+		auto    err = row.Scan(sampleID, dim, val);
 		if (!err.OK())
 			return err;
-		resp[dim] = val;
+		auto regionID64 = sampleIDToRegionID.get(sampleID);
+		auto region     = sampleIDToRegion.get(sampleID);
+		auto regionID   = tsf::fmt("%v", regionID64);
+		if (jRegions.find(regionID) == jRegions.end() && region != "") {
+			jRegions[regionID]["region"] = region;
+		}
+		jRegions[regionID]["dims"][dim] = val;
 	}
 	if (!rows.OK())
 		return rows.Err();

@@ -57,5 +57,27 @@
             4,
             5
         ]
+    },
+    "traffic_signs": {
+        "explain": "Traffic Signs",
+        "type": "polygon",
+        "values": [
+            "Stop",
+            "Children",
+            "Tractor",
+            "Tourism",
+            "Camera",
+            "Chevron Culvert",
+            "Traffic Lights",
+            "Green Directions",
+            "No Left Turn",
+            "No Right Turn",
+            "Warning (!)",
+            "Winding Road",
+            "No Entry",
+            "Concealed Entrance",
+            "60km",
+            "80km"
+        ]
     }
 }

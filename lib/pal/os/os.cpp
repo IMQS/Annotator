@@ -566,8 +566,7 @@ IMQS_PAL_API Error FindFiles(const std::string& _dir, std::function<bool(const F
 			continue;
 		if (strcmp(iter->d_name, "..") == 0)
 			continue;
-		item.IsDir = iter->d_type == DT_DIR;
-		item.Name  = iter->d_name;
+		item.Name = iter->d_name;
 		struct stat st;
 		if (stat((fixed + "/" + iter->d_name).c_str(), &st) != 0) {
 			err = ErrorFrom_errno(errno);
@@ -575,7 +574,14 @@ IMQS_PAL_API Error FindFiles(const std::string& _dir, std::function<bool(const F
 		}
 		item.TimeCreate = time::Time::FromUnix(STAT_TIME(st, c)); // st.st_mtim.tv_sec + st.st_mtim.tv_nsec * (1.0 / 1000000000);
 		item.TimeModify = time::Time::FromUnix(STAT_TIME(st, m)); // st.st_mtim.tv_sec + st.st_mtim.tv_nsec * (1.0 / 1000000000);
-		bool res        = callback(item);
+		item.IsDir      = false;
+		if (iter->d_type == DT_DIR) {
+			item.IsDir = true;
+		} else if (iter->d_type == DT_UNKNOWN) {
+			// I first saw this on mounted directories
+			item.IsDir = S_ISDIR(st.st_mode);
+		}
+		bool res = callback(item);
 		if (item.IsDir) {
 			if (res) {
 				err = FindFiles(fixed + "/" + item.Name, callback);

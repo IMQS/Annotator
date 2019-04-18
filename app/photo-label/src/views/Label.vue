@@ -10,9 +10,8 @@
 					<div class='skLeft'>⌨️</div>
 					<div class='skRight'>value</div>
 				</div>
-				<div v-if='dim'>
-					<!-- <div v-for='val in dim.values' :key='val' style='display: flex' class='labelRow' :class='{activeLabelRow: activeLabel === val}'> -->
-					<div v-for='val in dim.values' :key='val' class='labelRow'>
+				<div v-if='dim' @mouseenter='drawTextOnLabels = true' @mouseleave='drawTextOnLabels = false'>
+					<div v-for='val in dim.values' :key='val' class='labelRow' :class='{activeLabelRow: activeLabel === val}' @click='onLabelRowClick(val)'>
 						<div class='skLeft'>{{dim.valueToShortcutKey[val]}}</div>
 						<div class='skRight'>{{val}}</div>
 					</div>
@@ -47,7 +46,7 @@
 					</div>
 				</div>
 				<div class='labelTxt' :style='{"font-size": labelTxtFontSize}'>
-					{{imgLabel}}
+					{{wholeImageLabel}}
 				</div>
 			</div>
 			<div class='scrollContainer'>
@@ -59,9 +58,11 @@
 
 <script lang="ts">
 import { Prop, Watch, Component, Vue } from 'vue-property-decorator';
-import { Dimension, DimensionSet } from '@/label';
+import { Dimension, DimensionSet, DimensionType, DirtyRegion, DirtyRegionQueue, LabelRegion } from '@/label';
 import ImageScroller from '@/components/ImageScroller.vue';
 import DatasetPicker from '@/components/DatasetPicker.vue';
+import * as draw from '@/draw';
+import { ImageLabelSet } from '@/label';
 
 @Component({
 	components: {
@@ -70,35 +71,59 @@ import DatasetPicker from '@/components/DatasetPicker.vue';
 	},
 })
 export default class Label extends Vue {
-	@Prop(String) dimid!: string;
+	@Prop(String) dimid!: string; // Dimension that we are labelling
+
 	allPhotos: string[] = [];
 	selectedPhotos: string[] = []; // a subset of the photos in allPhotos, which match the prefix 'dataset'
 	dataset: string = '';
-	currentImgEl: HTMLImageElement = document.createElement('img');
 	dimensions: DimensionSet = new DimensionSet();
 	resizeDrawTimer: number = 0;
 	imgIndex: number = -1; // index in selectedPhotos
-	usableFramePortion: number = 1 / 3;
 	brightness: number = 0.5;
-	//activeLabel: string = ''; // eg 1..5, or 'gravel', 'tar, etc.
-	imgLabel: string = '';
 	ctrlKeyDown: boolean = false;
 	waitingForImg: boolean = false;
+	dirtyQueue: DirtyRegionQueue = new DirtyRegionQueue();
+	draw: draw.Draw = new draw.Draw();
 	//isResizeBusy: boolean = false;
 
 	@Watch('imgIndex') onCurrentImgChanged() {
+		// Don't load the label for the whole image if control is being held down, because in this case, we are assigning
+		// a new label to the whole image, so there's no need to load the previous state.
 		if (!this.ctrlKeyDown)
-			this.loadLabel();
+			this.loadLabels();
+
 		this.waitingForImg = true;
-		this.currentImgEl.onload = () => {
+		this.draw.img.onload = () => {
 			this.waitingForImg = false;
-			this.draw();
+			this.drawCanvas();
 		};
-		this.currentImgEl.src = this.currentImgSrc;
+		this.draw.img.src = this.currentImgSrc;
+	}
+
+	get labels(): ImageLabelSet {
+		return this.draw.labels;
+	}
+
+	set labels(labels: ImageLabelSet) {
+		this.draw.labels = labels;
+	}
+
+	get activeLabel(): string {
+		return this.draw.activeLabel;
+	}
+
+	set activeLabel(label: string) {
+		this.draw.activeLabel = label;
 	}
 
 	get dim(): Dimension | null {
 		return this.dimensions.fromID(this.dimid);
+	}
+
+	get isWholeImageDim(): boolean {
+		if (this.dim === null)
+			return true;
+		return this.dim.type === DimensionType.WholeImage;
 	}
 
 	get scrollPos(): number {
@@ -108,7 +133,7 @@ export default class Label extends Vue {
 	}
 
 	get labelTxtFontSize(): string {
-		if (this.imgLabel.length <= 1)
+		if (this.wholeImageLabel.length <= 1)
 			return '15rem';
 		else
 			return '7rem';
@@ -139,6 +164,21 @@ export default class Label extends Vue {
 			return '';
 	}
 
+	get wholeImageLabel(): string {
+		if (this.dim === null || this.dim.type !== DimensionType.WholeImage)
+			return '';
+
+		let lab = this.labels.wholeImageRegion.labels[this.dimid];
+		if (lab === undefined)
+			return '';
+		return lab;
+	}
+
+	set drawTextOnLabels(enable: boolean) {
+		this.draw.drawText = enable;
+		this.draw.paint();
+	}
+
 	onKeyDown(ev: KeyboardEvent) {
 		if (ev.key === 'Control')
 			this.ctrlKeyDown = true;
@@ -149,27 +189,43 @@ export default class Label extends Vue {
 		else if (ev.key === 'ArrowRight')
 			seek = 1;
 
+		if (seek !== 0) {
+			// If we don't do this, then focus can land up on the dataset radio buttons, and the left/right
+			// keys end up switching datasets.
+			ev.preventDefault();
+		}
+
 		// Only seek if we're not busy waiting for an image. If we don't do this, then we end up
 		// cancelling the previous image load, and this happens every time, so we end up never
 		// showing any updates. All things considered, it's probably a good thing to make sure
 		// that every single frame flashes before the user's eyes when he is labelling.
-		if (seek && !this.waitingForImg) {
+		if (seek !== 0 && !this.waitingForImg) {
 			this.imgIndex = Math.max(0, Math.min(this.imgIndex + seek, this.selectedPhotos.length - 1));
-			if (ev.ctrlKey)
-				this.setLabel(this.imgLabel);
+			this.saveScrollPosToLocalStorage();
+			if (ev.ctrlKey && this.isWholeImageDim)
+				this.setWholeImageLabel(this.activeLabel);
 		} else if (this.dim) {
 			//console.log(ev);
 			let val = this.dim.shortcutKeyToValue[ev.key.toUpperCase()];
-			if (val !== undefined)
-				this.setLabel(val);
-			else if (ev.key === ' ')
-				this.setLabel('');
+			if (this.isWholeImageDim) {
+				if (val !== undefined)
+					this.setWholeImageLabel(val);
+				else if (ev.key === ' ')
+					this.setWholeImageLabel('');
+			} else {
+				if (val !== undefined)
+					this.activeLabel = val;
+			}
 		}
 	}
 
 	onKeyUp(ev: KeyboardEvent) {
 		if (ev.key === 'Control')
 			this.ctrlKeyDown = false;
+	}
+
+	onLabelRowClick(dimid: string) {
+		this.activeLabel = dimid;
 	}
 
 	onBrightnessChange(pos: number) {
@@ -180,13 +236,17 @@ export default class Label extends Vue {
 	onScroll(pos: number) {
 		let i = pos * this.selectedPhotos.length;
 		this.imgIndex = Math.floor(Math.max(0, Math.min(i, this.selectedPhotos.length - 1)));
-		if (this.imgIndex < this.selectedPhotos.length)
-			localStorage.setItem('imgName', this.selectedPhotos[this.imgIndex]);
+		this.saveScrollPosToLocalStorage();
 	}
 
 	onDatasetChanged(dataset: string) {
 		this.dataset = dataset;
 		this.refreshSelectedPhotos();
+	}
+
+	saveScrollPosToLocalStorage() {
+		if (this.imgIndex < this.selectedPhotos.length)
+			localStorage.setItem('imgName', this.selectedPhotos[this.imgIndex]);
 	}
 
 	restoreImgIndexFromLocalStorage() {
@@ -205,6 +265,8 @@ export default class Label extends Vue {
 		this.imgIndex = 0;
 	}
 
+	// Refresh the list of photos available from the scrollbar.
+	// This is called after the user changes the dataset.
 	refreshSelectedPhotos() {
 		if (this.dataset === '' || this.dataset === 'Everything') {
 			this.selectedPhotos = this.allPhotos;
@@ -222,42 +284,16 @@ export default class Label extends Vue {
 		this.onCurrentImgChanged(); // force a change, because imgIndex doesn't mean what it used to
 	}
 
-	setLabel(val: string) {
-		//this.activeLabel = val;
-		this.imgLabel = val;
+	setWholeImageLabel(val: string) {
+		this.activeLabel = val;
 		if (this.dim === null)
 			return;
-		let apiURL = '/api/db/set_label?image=' + encodeURIComponent(this.imgPath) +
-			'&author=' + encodeURIComponent(localStorage.getItem('author') || '') +
-			'&dimension=' + encodeURIComponent(this.dim.id) +
-			'&value=' + encodeURIComponent(this.imgLabel);
-		fetch(apiURL, { method: 'POST' }).then((response) => {
-			if (!response.ok) {
-				this.imgLabel = '';
-				response.text().then((txt) => {
-					alert(response.status + ' ' + response.statusText + ':\n\n' + txt);
-				}).catch((reason) => {
-					alert(response.status + ' ' + response.statusText);
-				});
-			}
-		}).catch((reason) => {
-			alert(reason);
-		});
+		this.$set(this.labels.wholeImageRegion.labels, this.dimid, val);
+		this.dirtyQueue.push(new DirtyRegion(this.imgPath, this.labels.wholeImageRegion, this.dimid));
 	}
 
-	draw() {
-		let canvas = this.$refs.imgCanvas as HTMLCanvasElement;
-		canvas.width = canvas.offsetWidth;
-		canvas.height = canvas.offsetHeight;
-		let cx = canvas.getContext('2d')!;
-		// Normally I hate screwing with the aspect ratio of an image, but in this case, I'm actually not so sure that it's a bad thing
-		cx.drawImage(this.currentImgEl, 0, 0, canvas.width, canvas.height);
-		let pad = 5;
-		cx.strokeStyle = 'rgba(55,150,250, 0.7)';
-		cx.lineWidth = 5;
-		let lwH = cx.lineWidth / 2;
-		let usableY = canvas.height * (1 - this.usableFramePortion);
-		cx.strokeRect(pad, usableY, canvas.width - pad * 2 + lwH, canvas.height - pad - usableY + lwH);
+	drawCanvas() {
+		this.draw.paint();
 	}
 
 	onResize() {
@@ -272,7 +308,7 @@ export default class Label extends Vue {
 			let aspect = canvas.width / canvas.height;
 			canvas.width = 200;
 			canvas.height = canvas.width / aspect;
-			this.draw();
+			this.drawCanvas();
 			this.isResizeBusy = true;
 		}
 		if (this.resizeDrawTimer !== 0)
@@ -280,16 +316,16 @@ export default class Label extends Vue {
 		this.resizeDrawTimer = setTimeout(() => {
 			this.resizeDrawTimer = 0;
 			this.isResizeBusy = false;
-			this.draw();
+			this.drawCanvas();
 		}, 50);
 		*/
 		clearTimeout(this.resizeDrawTimer);
 		this.resizeDrawTimer = setTimeout(() => {
-			this.draw();
+			this.drawCanvas();
 		}, 50);
 	}
 
-	loadLabel() {
+	loadLabels() {
 		let $this = this;
 		let apiURL = '/api/db/get_labels?image=' + encodeURIComponent(this.imgPath);
 		fetch(apiURL, { method: 'POST' }).then((response) => {
@@ -297,16 +333,10 @@ export default class Label extends Vue {
 				alert(response.status + ' ' + response.statusText);
 			} else {
 				response.json().then((jvals) => {
-					if ($this.dim !== null) {
-						// jvals looks like { 'road_type': 'tar', 'crocodile_cracks': 3 }
-						$this.imgLabel = '';
-						for (let k in jvals) {
-							if (k === $this.dim.id) {
-								$this.imgLabel = jvals[k];
-								break;
-							}
-						}
-					}
+					$this.labels = ImageLabelSet.fromJSON(jvals);
+					// If we're waiting for an image, then drawing now will cause us to flash a white screen
+					if (!this.waitingForImg)
+						$this.drawCanvas();
 				});
 			}
 		}).catch((reason) => {
@@ -314,7 +344,19 @@ export default class Label extends Vue {
 		});
 	}
 
+	onRegionModified(action: draw.Modification, region: LabelRegion) {
+		if (action === draw.Modification.Modify) {
+			this.$set(this.draw.curRegion!.labels, this.dimid, this.activeLabel);
+			this.dirtyQueue.push(new DirtyRegion(this.imgPath, region, this.dimid));
+		} else if (action === draw.Modification.Delete) {
+			this.dirtyQueue.push(new DirtyRegion(this.imgPath, region, this.dimid));
+		}
+	}
+
 	mounted() {
+		this.draw.onModifyRegion = this.onRegionModified;
+		this.draw.initialize(this.$refs.imgCanvas as HTMLCanvasElement);
+
 		let sb = localStorage.getItem('brightness');
 		if (sb !== null)
 			this.brightness = parseFloat(sb);
@@ -325,12 +367,13 @@ export default class Label extends Vue {
 				this.refreshSelectedPhotos();
 				if (this.selectedPhotos.length !== 0) {
 					this.restoreImgIndexFromLocalStorage();
-					this.draw();
+					this.drawCanvas();
 				}
 			});
 		});
 		DimensionSet.fetch().then((dset: DimensionSet) => {
 			this.dimensions = dset;
+			this.draw.dim = this.dim;
 		});
 		window.addEventListener('resize', this.onResize);
 		window.addEventListener('keydown', this.onKeyDown);
@@ -338,6 +381,8 @@ export default class Label extends Vue {
 	}
 
 	destroyed() {
+		this.dirtyQueue.stop();
+		this.draw.shutdown();
 		window.removeEventListener('resize', this.onResize);
 		window.removeEventListener('keydown', this.onKeyDown);
 		window.removeEventListener('keyup', this.onKeyUp);
@@ -379,8 +424,10 @@ export default class Label extends Vue {
 	//margin: 0.2em 0;
 	display: flex;
 	padding: 0.1em 0;
-	border-radius: 3px;
+	border-radius: 0px;
 	border: solid 1px rgba(0, 0, 0, 0);
+	border-left: solid 4px rgba(0, 0, 0, 0);
+	cursor: pointer;
 }
 .skLeft {
 	width: 3em;
@@ -389,10 +436,12 @@ export default class Label extends Vue {
 .skRight {
 	margin-left: 1em;
 }
-//.activeLabelRow {
-//	background-color: #eee;
-//	border: solid 1px #888;
-//}
+.activeLabelRow {
+	background-color: #f0f0d0;
+	//border: solid 1px #888;
+	font-weight: 800;
+	border-left: solid 4px rgba(0, 0, 0, 255);
+}
 .titleBar {
 	display: flex;
 	align-content: center;
