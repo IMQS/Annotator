@@ -72,6 +72,8 @@
             "Green Directions",
             "No Left Turn",
             "No Right Turn",
+            "Left Turn Ahead",
+            "Right Turn Ahead",
             "Warning (!)",
             "Winding Road",
             "No Entry",

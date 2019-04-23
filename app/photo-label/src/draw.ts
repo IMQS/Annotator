@@ -41,6 +41,7 @@ export class Draw {
 	public labels: ImageLabelSet = new ImageLabelSet();
 	public curRegion: LabelRegion | null = null;
 	public curDragIdx: number = -1;
+	public minVxDragPx = 30;
 	public minClickPx = 30;
 	public vpScale: Vec2 = new Vec2(0, 0); // scale from image pixels to canvas pixels
 	public vpOffset: Vec2 = new Vec2(0, 0); // offset from image origin to canvas origin
@@ -55,7 +56,7 @@ export class Draw {
 		this.canvas.addEventListener('contextmenu', (ev) => { this.onContextMenu(ev); });
 		this.canvas.addEventListener('wheel', (ev) => { this.onMouseWheel(ev); });
 		//window.addEventListener('mousewheel', this.onMouseWheel);
-		this.zoomAll();
+		this.zoomAll(false);
 	}
 
 	shutdown() {
@@ -89,7 +90,7 @@ export class Draw {
 			this.onModifyRegion(Modification.Delete, region);
 	}
 
-	zoomAll() {
+	zoomAll(paintNow: boolean = true) {
 		let imgW = this.img.naturalWidth;
 		let imgH = this.img.naturalHeight;
 		let canW = this.canvas.clientWidth;
@@ -102,11 +103,13 @@ export class Draw {
 		this.vpScale.y = canH / imgH;
 		this.vpOffset = new Vec2(0, 0);
 		//console.log('offset:', this.vpOffset.x, this.vpOffset.y, 'scale:', this.vpScale.x, this.vpScale.y);
+		if (paintNow)
+			this.paint();
 	}
 
 	paint() {
 		if (this.vpScale.x === 0)
-			this.zoomAll();
+			this.zoomAll(false);
 
 		let canvas = this.canvas;
 		canvas.width = canvas.offsetWidth;
@@ -149,7 +152,7 @@ export class Draw {
 				maxP.y = Math.max(maxP.y, pt.y);
 			}
 			cx.lineTo(pt0.x, pt0.y);
-			cx.lineWidth = isDefined ? 2.2 : 2.0;
+			cx.lineWidth = isDefined ? 1.5 : 1.5;
 			if (region === this.curRegion) {
 				cx.strokeStyle = 'rgba(210,0,200,0.9)';
 				cx.stroke();
@@ -159,7 +162,14 @@ export class Draw {
 				cx.fill();
 				cx.stroke();
 			}
-			if (this.drawText && this.dim !== null) {
+			for (let ppt of p.vx) {
+				let pt = this.img2can(ppt);
+				cx.fillStyle = 'rgba(0,0,0,0.7)';
+				cx.beginPath();
+				cx.ellipse(pt.x, pt.y, 2.5, 2.5, 0, 0, 2 * Math.PI);
+				cx.fill();
+			}
+			if (this.drawText && this.dim !== null && region.labels[this.dim.id] !== undefined) {
 				let mx = (minP.x + maxP.x) / 2;
 				let my = (minP.y + maxP.y) / 2;
 				this.drawTextWithHalo(cx, region.labels[this.dim.id], mx, my);
@@ -205,7 +215,8 @@ export class Draw {
 			return;
 
 		// Hold down ctrl to force creation of a new polygon (instead of moving an existing vertex)
-		let forceNew = ev.ctrlKey;
+		let forceNewRegion = ev.shiftKey;
+		let deleteVertex = ev.ctrlKey;
 		let forceDelete = ev.altKey;
 
 		let clickPtCanvas = new Vec2(ev.layerX, ev.layerY);
@@ -213,7 +224,7 @@ export class Draw {
 
 		if (this.state === State.None) {
 			// decide if we're going to drag a vertex or create a new polygon
-			if (!forceNew) {
+			if (!forceNewRegion) {
 				let htVx = this.closestPolygonVertex(clickPtCanvas);
 				let htObj = this.closestPolygon(clickPtCanvas);
 				if (forceDelete) {
@@ -229,10 +240,21 @@ export class Draw {
 					return;
 				}
 				if (htVx !== null && htVx.distance < this.minClickPx) {
+					if (deleteVertex && htVx.region.polygon!.vx.length > 3) {
+						htVx.region.polygon!.vx.splice(htVx.idx, 1);
+					} else {
+						this.state = State.DragVertex;
+						this.curRegion = htVx.region;
+						this.curDragIdx = htVx.idx;
+						this.curRegion!.polygon!.vx[this.curDragIdx] = clickPtWorld;
+					}
+					this.paint();
+					return;
+				} else if (htObj !== null && htObj.distance < this.minClickPx) {
 					this.state = State.DragVertex;
-					this.curRegion = htVx.region;
-					this.curDragIdx = htVx.idx;
-					this.curRegion!.polygon!.vx[this.curDragIdx] = clickPtWorld;
+					this.curRegion = htObj.region;
+					this.curRegion.polygon!.vx.splice(htObj.idx + 1, 0, clickPtWorld);
+					this.curDragIdx = htObj.idx + 1;
 					this.paint();
 				}
 			}

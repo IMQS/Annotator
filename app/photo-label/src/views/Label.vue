@@ -10,12 +10,15 @@
 					<div class='skLeft'>⌨️</div>
 					<div class='skRight'>value</div>
 				</div>
-				<div v-if='dim' @mouseenter='drawTextOnLabels = true' @mouseleave='drawTextOnLabels = false'>
+				<div v-if='dim'>
 					<div v-for='val in dim.values' :key='val' class='labelRow' :class='{activeLabelRow: activeLabel === val}' @click='onLabelRowClick(val)'>
 						<div class='skLeft'>{{dim.valueToShortcutKey[val]}}</div>
 						<div class='skRight'>{{val}}</div>
 					</div>
 					<div class='labelRow'><div class='skLeft'>space</div><div class='skRight' style='color: #a55'>remove label</div></div>
+				</div>
+				<div class='optionsGroup'>
+					<label><input type='checkbox' v-model='drawTextOnLabels' />Show Labels</label>
 				</div>
 				<div style='margin: 1rem 0.5rem; font-size: 0.85rem; color: #777;'>
 					Press the shortcut key in the left column to label the image.
@@ -48,6 +51,9 @@
 				<div class='labelTxt' :style='{"font-size": labelTxtFontSize}'>
 					{{wholeImageLabel}}
 				</div>
+				<div style='pointer-events: auto; position: absolute; right: 0px; top: 0px; padding: 10px'>
+					<svg-button icon='/maximize-2.svg' @click='draw.zoomAll()'></svg-button>
+				</div>
 			</div>
 			<div class='scrollContainer'>
 				<image-scroller class='scroller' :pos='scrollPos' @change='onScroll'></image-scroller>
@@ -61,6 +67,7 @@ import { Prop, Watch, Component, Vue } from 'vue-property-decorator';
 import { Dimension, DimensionSet, DimensionType, DirtyRegion, DirtyRegionQueue, LabelRegion } from '@/label';
 import ImageScroller from '@/components/ImageScroller.vue';
 import DatasetPicker from '@/components/DatasetPicker.vue';
+import SvgButton from '@/components/SvgButton.vue';
 import * as draw from '@/draw';
 import { ImageLabelSet } from '@/label';
 
@@ -68,6 +75,7 @@ import { ImageLabelSet } from '@/label';
 	components: {
 		ImageScroller,
 		DatasetPicker,
+		SvgButton,
 	},
 })
 export default class Label extends Vue {
@@ -174,8 +182,13 @@ export default class Label extends Vue {
 		return lab;
 	}
 
+	get drawTextOnLabels(): boolean {
+		return this.draw.drawText;
+	}
+
 	set drawTextOnLabels(enable: boolean) {
 		this.draw.drawText = enable;
+		localStorage.setItem('showLabels', enable ? '1' : '0');
 		this.draw.paint();
 	}
 
@@ -346,7 +359,10 @@ export default class Label extends Vue {
 
 	onRegionModified(action: draw.Modification, region: LabelRegion) {
 		if (action === draw.Modification.Modify) {
-			this.$set(this.draw.curRegion!.labels, this.dimid, this.activeLabel);
+			if (this.draw.curRegion!.labels[this.dimid] === undefined) {
+				// This path only gets hit when a new region is created
+				this.$set(this.draw.curRegion!.labels, this.dimid, this.activeLabel);
+			}
 			this.dirtyQueue.push(new DirtyRegion(this.imgPath, region, this.dimid));
 		} else if (action === draw.Modification.Delete) {
 			this.dirtyQueue.push(new DirtyRegion(this.imgPath, region, this.dimid));
@@ -360,6 +376,10 @@ export default class Label extends Vue {
 		let sb = localStorage.getItem('brightness');
 		if (sb !== null)
 			this.brightness = parseFloat(sb);
+
+		let showLabels = localStorage.getItem('showLabels');
+		if (showLabels !== null)
+			this.draw.drawText = showLabels === '1';
 
 		fetch('/api/list_images').then((r) => {
 			r.json().then((jr) => {
@@ -521,6 +541,14 @@ export default class Label extends Vue {
 	align-content: center;
 	pointer-events: auto;
 }
+.optionsGroup {
+	margin-top: 10px;
+	padding: 5px;
+	background-color: #f0f0f0;
+	border: solid 1px #e0e0e0;
+	border-radius: 3px;
+	user-select: none;
+}
 .labelTxt {
 	font-size: 15rem;
 	color: #000;
@@ -532,5 +560,11 @@ a {
 }
 a:visited {
 	color: #000;
+}
+.button {
+	background-color: #eee;
+}
+.zoomAll {
+	background: url("/maximize-2.svg");
 }
 </style>
