@@ -123,7 +123,7 @@ export class Draw {
 
 		this.paintPolygons(cx);
 
-		if (this.dim && this.dim.type == DimensionType.WholeImage) {
+		if (this.dim && this.dim.type === DimensionType.WholeImage) {
 			let pad = 5;
 			cx.strokeStyle = 'rgba(55,150,250, 0.7)';
 			cx.lineWidth = 5;

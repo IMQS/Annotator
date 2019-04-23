@@ -47,7 +47,7 @@ export default class LabelImage extends Vue {
 .outerLabelImage {
 	cursor: pointer;
 	display: flex;
-	justify-content: start;
+	justify-content: flex-start;
 	align-items: center;
 }
 .outerLabelImage:hover {

@@ -453,6 +453,8 @@ void Server::ServeStatic(phttp::Response& w, phttp::RequestPtr r) {
 		w.SetHeader("Content-Type", "image/icon");
 	else if (ext == ".css")
 		w.SetHeader("Content-Type", "text/css");
+	else if (ext == ".svg")
+		w.SetHeader("Content-Type", "image/svg+xml");
 	else if (ext == ".js")
 		w.SetHeader("Content-Type", "text/javascript");
 	else if (ext == ".js.map")
