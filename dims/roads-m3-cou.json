@@ -126,6 +126,22 @@
                 "title": "Cyclists Only",
                 "icon": "/traffic-signs/R111 Cyclists Only.jpg"
             },
+            "za-R112": {
+                "title": "Cyclists and Pedestrians Only",
+                "icon": "/traffic-signs/R112 Cyclists and Pedestrians Only.jpg"
+            },
+            "za-R113": {
+                "title": "Cyclists and Pedestrians Only",
+                "icon": "/traffic-signs/R113 Cyclists and Pedestrians Only.jpg"
+            },
+            "za-R114": {
+                "title": "Cyclists and Pedestrians, Road Split",
+                "icon": "/traffic-signs/R114 Cyclists and Pedestrians, Road Split.jpg"
+            },
+            "za-R115": {
+                "title": "Cyclists and Pedestrians, Road Split",
+                "icon": "/traffic-signs/R115 Cyclists and Pedestrians, Road Split.jpg"
+            },
             "za-R116": {
                 "title": "Motorcycles Only",
                 "icon": "/traffic-signs/R116 Motorcycles Only.jpg"
@@ -214,6 +230,10 @@
                 "title": "Roundabout",
                 "icon": "/traffic-signs/R137 Roundabout.jpg"
             },
+            "za-R15": {
+                "title": "Closed Gesluit",
+                "icon": "/traffic-signs/R15 Closed Gesluit.jpg"
+            },
             "za-R2": {
                 "title": "Yield",
                 "icon": "/traffic-signs/R2 Yield.jpg"
@@ -230,9 +250,25 @@
                 "title": "Speed Limit 100",
                 "icon": "/traffic-signs/R201-100 Speed Limit 100.jpg"
             },
+            "za-R201-120": {
+                "title": "Speed Limit 120",
+                "icon": "/traffic-signs/R201-120 Speed Limit 120.jpg"
+            },
             "za-R201-60": {
                 "title": "Speed Limit 60",
                 "icon": "/traffic-signs/R201-60 Speed Limit 60.jpg"
+            },
+            "za-R201-70": {
+                "title": "Speed Limit 70",
+                "icon": "/traffic-signs/R201-70 Speed Limit 70.jpg"
+            },
+            "za-R201-80": {
+                "title": "Speed Limit 80",
+                "icon": "/traffic-signs/R201-80 Speed Limit 80.jpg"
+            },
+            "za-R201-90": {
+                "title": "Speed Limit 90",
+                "icon": "/traffic-signs/R201-90 Speed Limit 90.jpg"
             },
             "za-R202-12": {
                 "title": "Mass Limit",
@@ -245,6 +281,22 @@
             "za-R204-4.42": {
                 "title": "Height Limit",
                 "icon": "/traffic-signs/R204-4.42 Height Limit.jpg"
+            },
+            "za-R205-15": {
+                "title": "Length Limit",
+                "icon": "/traffic-signs/R205-15 Length Limit.jpg"
+            },
+            "za-R206": {
+                "title": "Excessive Noise Prohibited",
+                "icon": "/traffic-signs/R206 Excessive Noise Prohibited.jpg"
+            },
+            "za-R207": {
+                "title": "Hitch-hiking Prohibited",
+                "icon": "/traffic-signs/R207 Hitch-hiking Prohibited.jpg"
+            },
+            "za-R208": {
+                "title": "Unauthorised Vehicles Prohibited",
+                "icon": "/traffic-signs/R208 Unauthorised Vehicles Prohibited.jpg"
             },
             "za-R209": {
                 "title": "Left Turn Ahead Prohibited",
@@ -265,6 +317,114 @@
             "za-R213": {
                 "title": "U-Turn Prohibited",
                 "icon": "/traffic-signs/R213 U-Turn Prohibited.jpg"
+            },
+            "za-R214": {
+                "title": "Overtaking Prohibited",
+                "icon": "/traffic-signs/R214 Overtaking Prohibited.jpg"
+            },
+            "za-R215": {
+                "title": "Overtaking Prohibited",
+                "icon": "/traffic-signs/R215 Overtaking Prohibited.jpg"
+            },
+            "za-R216": {
+                "title": "Parking Prohibited",
+                "icon": "/traffic-signs/R216 Parking Prohibited.jpg"
+            },
+            "za-R217": {
+                "title": "Stopping Prohibited",
+                "icon": "/traffic-signs/R217 Stopping Prohibited.jpg"
+            },
+            "za-R218": {
+                "title": "Pedestrians Prohibited",
+                "icon": "/traffic-signs/R218 Pedestrians Prohibited.jpg"
+            },
+            "za-R219": {
+                "title": "Pedal Cyclists Prohibited",
+                "icon": "/traffic-signs/R219 Pedal Cyclists Prohibited.jpg"
+            },
+            "za-R220": {
+                "title": "Pedal Cyclists and Pedestrians Prohibited",
+                "icon": "/traffic-signs/R220 Pedal Cyclists and Pedestrians Prohibited.jpg"
+            },
+            "za-R222": {
+                "title": "Motorcycles Prohibited",
+                "icon": "/traffic-signs/R222 Motorcycles Prohibited.jpg"
+            },
+            "za-R223": {
+                "title": "Motorcars Pohibited",
+                "icon": "/traffic-signs/R223 Motorcars Pohibited.jpg"
+            },
+            "za-R224": {
+                "title": "Taxis Prohibited",
+                "icon": "/traffic-signs/R224 Taxis Prohibited.jpg"
+            },
+            "za-R225": {
+                "title": "Minibuses Prohibited",
+                "icon": "/traffic-signs/R225 Minibuses Prohibited.jpg"
+            },
+            "za-R226": {
+                "title": "Midi Buses Prohibited",
+                "icon": "/traffic-signs/R226 Midi Buses Prohibited.jpg"
+            },
+            "za-R227": {
+                "title": "Buses Prohibited",
+                "icon": "/traffic-signs/R227 Buses Prohibited.jpg"
+            },
+            "za-R228": {
+                "title": "Delivery Vehicles Prohibited",
+                "icon": "/traffic-signs/R228 Delivery Vehicles Prohibited.jpg"
+            },
+            "za-R229": {
+                "title": "Goods Vehicles Prohibited",
+                "icon": "/traffic-signs/R229 Goods Vehicles Prohibited.jpg"
+            },
+            "za-R230-10": {
+                "title": "Goods Vehicles Exceeding an Indicated GVM Prohibited",
+                "icon": "/traffic-signs/R230-10 Goods Vehicles Exceeding an Indicated GVM Prohibited.jpg"
+            },
+            "za-R231": {
+                "title": "Construction Vehicles Prohibited",
+                "icon": "/traffic-signs/R231 Construction Vehicles Prohibited.jpg"
+            },
+            "za-R232": {
+                "title": "Vehicles Transporting Dangerous Substances Prohibited",
+                "icon": "/traffic-signs/R232 Vehicles Transporting Dangerous Substances Prohibited.jpg"
+            },
+            "za-R233": {
+                "title": "Abnormal Vehicles Prohibited",
+                "icon": "/traffic-signs/R233 Abnormal Vehicles Prohibited.jpg"
+            },
+            "za-R234": {
+                "title": "Rickshaw Prohibited",
+                "icon": "/traffic-signs/R234 Rickshaw Prohibited.jpg"
+            },
+            "za-R235": {
+                "title": "Tour Buses Prohibited",
+                "icon": "/traffic-signs/R235 Tour Buses Prohibited.jpg"
+            },
+            "za-R236": {
+                "title": "Agricultural Vehicles Prohibited",
+                "icon": "/traffic-signs/R236 Agricultural Vehicles Prohibited.jpg"
+            },
+            "za-R237": {
+                "title": "Animal Drawn Vehicles Prohibited",
+                "icon": "/traffic-signs/R237 Animal Drawn Vehicles Prohibited.jpg"
+            },
+            "za-R238": {
+                "title": "Horse and Riders Prohibited",
+                "icon": "/traffic-signs/R238 Horse and Riders Prohibited.jpg"
+            },
+            "za-R239-2.1": {
+                "title": "Width Limit",
+                "icon": "/traffic-signs/R239-2.1 Width Limit.jpg"
+            },
+            "za-R240": {
+                "title": "Towed Vehicles Prohibited",
+                "icon": "/traffic-signs/R240 Towed Vehicles Prohibited.jpg"
+            },
+            "za-R241": {
+                "title": "Hawkers Prohibited",
+                "icon": "/traffic-signs/R241 Hawkers Prohibited.jpg"
             },
             "za-R3": {
                 "title": "No Entry",
@@ -290,9 +450,157 @@
                 "title": "Yield to Oncoming Traffic",
                 "icon": "/traffic-signs/R6 Yield to Oncoming Traffic.jpg"
             },
+            "za-TW304": {
+                "title": "Traffic Control Ahead",
+                "icon": "/traffic-signs/TW304 Traffic Control Ahead.jpg"
+            },
+            "za-TW305": {
+                "title": "Scholar Patrol Ahead",
+                "icon": "/traffic-signs/TW305 Scholar Patrol Ahead.jpg"
+            },
+            "za-TW336": {
+                "title": "Road Works",
+                "icon": "/traffic-signs/TW336 Road Works.jpg"
+            },
+            "za-TW337": {
+                "title": "Grader Working",
+                "icon": "/traffic-signs/TW337 Grader Working.jpg"
+            },
+            "za-TW338": {
+                "title": "Loose Stones",
+                "icon": "/traffic-signs/TW338 Loose Stones.jpg"
+            },
+            "za-TW340": {
+                "title": "Surface Step to Left",
+                "icon": "/traffic-signs/TW340 Surface Step to Left.jpg"
+            },
+            "za-TW341": {
+                "title": "Surface Step to Right",
+                "icon": "/traffic-signs/TW341 Surface Step to Right.jpg"
+            },
+            "za-TW342": {
+                "title": "Soft Shoulder",
+                "icon": "/traffic-signs/TW342 Soft Shoulder.jpg"
+            },
+            "za-TW343": {
+                "title": "Stop-Go Control",
+                "icon": "/traffic-signs/TW343 Stop-Go Control.jpg"
+            },
+            "za-TW344": {
+                "title": "Truck Crossing from Left",
+                "icon": "/traffic-signs/TW344 Truck Crossing from Left.jpg"
+            },
+            "za-TW345": {
+                "title": "Truck Crossing from Right",
+                "icon": "/traffic-signs/TW345 Truck Crossing from Right.jpg"
+            },
+            "za-TW346": {
+                "title": "Emergency Flashing Light",
+                "icon": "/traffic-signs/TW346 Emergency Flashing Light.jpg"
+            },
+            "za-TW347": {
+                "title": "Temporary Police Flashing Light",
+                "icon": "/traffic-signs/TW347 Temporary Police Flashing Light.jpg"
+            },
+            "za-W101": {
+                "title": "Crossroad",
+                "icon": "/traffic-signs/W101 Crossroad.jpg"
+            },
+            "za-W103": {
+                "title": "Secondary Crossroad",
+                "icon": "/traffic-signs/W103 Secondary Crossroad.jpg"
+            },
             "za-W104": {
                 "title": "T-Junction",
                 "icon": "/traffic-signs/W104 T-Junction.jpg"
+            },
+            "za-W105": {
+                "title": "Skew T-junction Left",
+                "icon": "/traffic-signs/W105 Skew T-junction Left.jpg"
+            },
+            "za-W106": {
+                "title": "Skew T-junction Right",
+                "icon": "/traffic-signs/W106 Skew T-junction Right.jpg"
+            },
+            "za-W107": {
+                "title": "Side Junction from Right",
+                "icon": "/traffic-signs/W107 Side Junction from Right.jpg"
+            },
+            "za-W109": {
+                "title": "Staggered Junctions Right Left",
+                "icon": "/traffic-signs/W109 Staggered Junctions Right Left.jpg"
+            },
+            "za-W110": {
+                "title": "Staggered Junction Left Right",
+                "icon": "/traffic-signs/W110 Staggered Junction Left Right.jpg"
+            },
+            "za-W111": {
+                "title": "Sharp Junction Left",
+                "icon": "/traffic-signs/W111 Sharp Junction Left.jpg"
+            },
+            "za-W112": {
+                "title": "Sharp Junction Left",
+                "icon": "/traffic-signs/W112 Sharp Junction Left.jpg"
+            },
+            "za-W113": {
+                "title": "Sharp Junction Right",
+                "icon": "/traffic-signs/W113 Sharp Junction Right.jpg"
+            },
+            "za-W114": {
+                "title": "Sharp Junction Right",
+                "icon": "/traffic-signs/W114 Sharp Junction Right.jpg"
+            },
+            "za-W115": {
+                "title": "Y-junction",
+                "icon": "/traffic-signs/W115 Y-junction.jpg"
+            },
+            "za-W116": {
+                "title": "End of Dual Roadway Left",
+                "icon": "/traffic-signs/W116 End of Dual Roadway Left.jpg"
+            },
+            "za-W117": {
+                "title": "End of Dual Roadway Right",
+                "icon": "/traffic-signs/W117 End of Dual Roadway Right.jpg"
+            },
+            "za-W118": {
+                "title": "Beginning of Dual Roadway Right",
+                "icon": "/traffic-signs/W118 Beginning of Dual Roadway Right.jpg"
+            },
+            "za-W119": {
+                "title": "Beginnign of Dual Roadway Left",
+                "icon": "/traffic-signs/W119 Beginnign of Dual Roadway Left.jpg"
+            },
+            "za-W12": {
+                "title": "Priority Crossroad",
+                "icon": "/traffic-signs/W12 Priority Crossroad.jpg"
+            },
+            "za-W201": {
+                "title": "Traffic Circle",
+                "icon": "/traffic-signs/W201 Traffic Circle.jpg"
+            },
+            "za-W202": {
+                "title": "Gentle Curve Right",
+                "icon": "/traffic-signs/W202 Gentle Curve Right.jpg"
+            },
+            "za-W203": {
+                "title": "Gentle Curve Left",
+                "icon": "/traffic-signs/W203 Gentle Curve Left.jpg"
+            },
+            "za-W204": {
+                "title": "Sharp Curve Right",
+                "icon": "/traffic-signs/W204 Sharp Curve Right.jpg"
+            },
+            "za-W205": {
+                "title": "Sharp Curve Left",
+                "icon": "/traffic-signs/W205 Sharp Curve Left.jpg"
+            },
+            "za-W206": {
+                "title": "Hairpin Bend Right",
+                "icon": "/traffic-signs/W206 Hairpin Bend Right.jpg"
+            },
+            "za-W207": {
+                "title": "Hairpin bend Left",
+                "icon": "/traffic-signs/W207 Hairpin bend Left.jpg"
             },
             "za-W208": {
                 "title": "Winding Road Left",
@@ -302,9 +610,53 @@
                 "title": "Winding Road Right",
                 "icon": "/traffic-signs/W209 Winding Road Right.jpg"
             },
+            "za-W210": {
+                "title": "Combined Curves Right",
+                "icon": "/traffic-signs/W210 Combined Curves Right.jpg"
+            },
+            "za-W211": {
+                "title": "Combined Curves Left",
+                "icon": "/traffic-signs/W211 Combined Curves Left.jpg"
+            },
+            "za-W212": {
+                "title": "Two-way Traffic",
+                "icon": "/traffic-signs/W212 Two-way Traffic.jpg"
+            },
+            "za-W213": {
+                "title": "Two-way Traffic Crossroad",
+                "icon": "/traffic-signs/W213 Two-way Traffic Crossroad.jpg"
+            },
+            "za-W214": {
+                "title": "Lane Ends Right",
+                "icon": "/traffic-signs/W214 Lane Ends Right.jpg"
+            },
+            "za-W215": {
+                "title": "Lane Ends Left",
+                "icon": "/traffic-signs/W215 Lane Ends Left.jpg"
+            },
+            "za-W216": {
+                "title": "Concealed Driveway Right",
+                "icon": "/traffic-signs/W216 Concealed Driveway Right.jpg"
+            },
+            "za-W217": {
+                "title": "Concealed Driveway Left",
+                "icon": "/traffic-signs/W217 Concealed Driveway Left.jpg"
+            },
+            "za-W218": {
+                "title": "Concealed Driveways",
+                "icon": "/traffic-signs/W218 Concealed Driveways.jpg"
+            },
             "za-W301": {
                 "title": "Traffic Signals Ahead",
                 "icon": "/traffic-signs/W301 Traffic Signals Ahead.jpg"
+            },
+            "za-W302": {
+                "title": "Traffic Control STOP Ahead",
+                "icon": "/traffic-signs/W302 Traffic Control STOP Ahead.jpg"
+            },
+            "za-W303": {
+                "title": "Traffic Control YIELD Ahead",
+                "icon": "/traffic-signs/W303 Traffic Control YIELD Ahead.jpg"
             },
             "za-W306": {
                 "title": "Pedestrian Crossing",
@@ -322,13 +674,161 @@
                 "title": "Pedal Cyclists",
                 "icon": "/traffic-signs/W309 Pedal Cyclists.jpg"
             },
+            "za-W310": {
+                "title": "Domestic Animals Cattle",
+                "icon": "/traffic-signs/W310 Domestic Animals Cattle.jpg"
+            },
+            "za-W311": {
+                "title": "Domestic Animals Horses",
+                "icon": "/traffic-signs/W311 Domestic Animals Horses.jpg"
+            },
+            "za-W312": {
+                "title": "Domestic Animals Sheep",
+                "icon": "/traffic-signs/W312 Domestic Animals Sheep.jpg"
+            },
+            "za-W313": {
+                "title": "Wild Animals",
+                "icon": "/traffic-signs/W313 Wild Animals.jpg"
+            },
+            "za-W314": {
+                "title": "Gate",
+                "icon": "/traffic-signs/W314 Gate.jpg"
+            },
+            "za-W315": {
+                "title": "Motor Gate Ahead on Right",
+                "icon": "/traffic-signs/W315 Motor Gate Ahead on Right.jpg"
+            },
+            "za-W316": {
+                "title": "Motor Gate Ahead on Left",
+                "icon": "/traffic-signs/W316 Motor Gate Ahead on Left.jpg"
+            },
+            "za-W317": {
+                "title": "Motor Gate Ahead",
+                "icon": "/traffic-signs/W317 Motor Gate Ahead.jpg"
+            },
+            "za-W318": {
+                "title": "Railway Crossing",
+                "icon": "/traffic-signs/W318 Railway Crossing.jpg"
+            },
+            "za-W319": {
+                "title": "Tunnel",
+                "icon": "/traffic-signs/W319 Tunnel.jpg"
+            },
+            "za-W320-4.42": {
+                "title": "Height Restricted",
+                "icon": "/traffic-signs/W320-4.42 Height Restricted.jpg"
+            },
+            "za-W321": {
+                "title": "Length Restricted",
+                "icon": "/traffic-signs/W321 Length Restricted.jpg"
+            },
+            "za-W322": {
+                "title": "Steep Descend",
+                "icon": "/traffic-signs/W322 Steep Descend.jpg"
+            },
+            "za-W323": {
+                "title": "Steep Ascend",
+                "icon": "/traffic-signs/W323 Steep Ascend.jpg"
+            },
+            "za-W324": {
+                "title": "Slow-Moving Heavy Vehicles",
+                "icon": "/traffic-signs/W324 Slow-Moving Heavy Vehicles.jpg"
+            },
+            "za-W325": {
+                "title": "Gravel Road Begins",
+                "icon": "/traffic-signs/W325 Gravel Road Begins.jpg"
+            },
+            "za-W326": {
+                "title": "Narrow Bridge",
+                "icon": "/traffic-signs/W326 Narrow Bridge.jpg"
+            },
+            "za-W327": {
+                "title": "One Vehicle Width Structure",
+                "icon": "/traffic-signs/W327 One Vehicle Width Structure.jpg"
+            },
+            "za-W328": {
+                "title": "Road Narrows from Both Directions",
+                "icon": "/traffic-signs/W328 Road Narrows from Both Directions.jpg"
+            },
+            "za-W329": {
+                "title": "Road Narrows from Right",
+                "icon": "/traffic-signs/W329 Road Narrows from Right.jpg"
+            },
+            "za-W331": {
+                "title": "Uneven Roadway",
+                "icon": "/traffic-signs/W331 Uneven Roadway.jpg"
+            },
+            "za-W332": {
+                "title": "Speed Hump",
+                "icon": "/traffic-signs/W332 Speed Hump.jpg"
+            },
+            "za-W333": {
+                "title": "Slippery Road",
+                "icon": "/traffic-signs/W333 Slippery Road.jpg"
+            },
+            "za-W334": {
+                "title": "Falling Rocks",
+                "icon": "/traffic-signs/W334 Falling Rocks.jpg"
+            },
             "za-W339": {
                 "title": "General Warning",
                 "icon": "/traffic-signs/W339 General Warning.jpg"
             },
+            "za-W348": {
+                "title": "Jetty Edge or River Bank",
+                "icon": "/traffic-signs/W348 Jetty Edge or River Bank.jpg"
+            },
+            "za-W349": {
+                "title": "Crosswinds",
+                "icon": "/traffic-signs/W349 Crosswinds.jpg"
+            },
+            "za-W350": {
+                "title": "Drift",
+                "icon": "/traffic-signs/W350 Drift.jpg"
+            },
+            "za-W351": {
+                "title": "Low-flying Aircraft",
+                "icon": "/traffic-signs/W351 Low-flying Aircraft.jpg"
+            },
             "za-W352": {
                 "title": "Agricultural Vehicles",
                 "icon": "/traffic-signs/W352 Agricultural Vehicles.jpg"
+            },
+            "za-W354": {
+                "title": "Reduced Visibility",
+                "icon": "/traffic-signs/W354 Reduced Visibility.jpg"
+            },
+            "za-W355": {
+                "title": "Congestion",
+                "icon": "/traffic-signs/W355 Congestion.jpg"
+            },
+            "za-W356": {
+                "title": "Horse and Rider",
+                "icon": "/traffic-signs/W356 Horse and Rider.jpg"
+            },
+            "za-W357": {
+                "title": "Elephant",
+                "icon": "/traffic-signs/W357 Elephant.jpg"
+            },
+            "za-W358": {
+                "title": "Warthog",
+                "icon": "/traffic-signs/W358 Warthog.jpg"
+            },
+            "za-W359": {
+                "title": "Hipo",
+                "icon": "/traffic-signs/W359 Hipo.jpg"
+            },
+            "za-W360-2.1": {
+                "title": "Width",
+                "icon": "/traffic-signs/W360-2.1 Width.jpg"
+            },
+            "za-W361": {
+                "title": "Electrical Shock",
+                "icon": "/traffic-signs/W361 Electrical Shock.jpg"
+            },
+            "za-W363": {
+                "title": "Gravel Road Ends",
+                "icon": "/traffic-signs/W363 Gravel Road Ends.jpg"
             },
             "za-W401": {
                 "title": "Danger Plate Left",
@@ -337,6 +837,34 @@
             "za-W402": {
                 "title": "Danger Plate Right",
                 "icon": "/traffic-signs/W402 Danger Plate Right.jpg"
+            },
+            "za-W403": {
+                "title": "Railway Crossing",
+                "icon": "/traffic-signs/W403 Railway Crossing.jpg"
+            },
+            "za-W405": {
+                "title": "Sharp Curve Chevron Left",
+                "icon": "/traffic-signs/W405 Sharp Curve Chevron Left.jpg"
+            },
+            "za-W406": {
+                "title": "Sharp Curve Chevron Right",
+                "icon": "/traffic-signs/W406 Sharp Curve Chevron Right.jpg"
+            },
+            "za-W407": {
+                "title": "Sharp Curve Chevron Left Long",
+                "icon": "/traffic-signs/W407 Sharp Curve Chevron Left Long.jpg"
+            },
+            "za-W408": {
+                "title": "Sharp Curve Chevron Right Long",
+                "icon": "/traffic-signs/W408 Sharp Curve Chevron Right Long.jpg"
+            },
+            "za-W409": {
+                "title": "T-junction Chevron",
+                "icon": "/traffic-signs/W409 T-junction Chevron.jpg"
+            },
+            "za-W410": {
+                "title": "Dead-end Chevron",
+                "icon": "/traffic-signs/W410 Dead-end Chevron.jpg"
             }
         }
     }
