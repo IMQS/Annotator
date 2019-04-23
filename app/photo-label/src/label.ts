@@ -5,9 +5,23 @@ export enum DimensionType {
 	Polygon,
 }
 
+// A possible value that can be assigned to a labelled thing
+// This is really just a label combined with some other metadata
+export class DimensionValue {
+	public label: string = ''; // This is the label that goes into the DB
+	public icon: string = ''; // An image to help the user understand what this is
+	public title: string = ''; // A title to help the user understand what this is
+
+	constructor(label: string, icon: string, title: string) {
+		this.label = label;
+		this.icon = icon;
+		this.title = title;
+	}
+}
+
 export class Dimension {
 	public id: string = '';
-	public values: string[] = [];
+	public values: DimensionValue[] = [];
 	public explain: string = '';
 	public type: DimensionType = DimensionType.WholeImage;
 	public shortcutKeyToValue: { [key: string]: string } = {}; // map from key to value
@@ -31,16 +45,31 @@ export class Dimension {
 		return s;
 	}
 	get niceValues(): string {
-		let inner = this.values.join(', ');
+		let inner = this.valueTitles.join(', ');
 		if (inner.length > 60)
 			inner = inner.substr(0, 60) + '...';
 		return '[' + inner + ']';
 	}
 
+	get valueTitles(): string[] {
+		let t = [];
+		for (let v of this.values)
+			t.push(v.title);
+		return t;
+	}
+
+	label2Value(label: string): DimensionValue | null {
+		for (let v of this.values) {
+			if (v.label === label)
+				return v;
+		}
+		return null;
+	}
+
 	buildShortcutKeys() {
 		let km: { [key: string]: string } = {};
 		let vk: { [key: string]: string } = {};
-		for (let v of this.values) {
+		for (let v of this.valueTitles) {
 			let str = v + '';
 			let key = '';
 			// try the first letters of all the words
@@ -95,7 +124,6 @@ export class DimensionSet {
 			let dim = new Dimension();
 			dim.id = k;
 			dim.explain = j[k].explain;
-			dim.values = j[k].values;
 			if (j[k].type === 'polygon')
 				dim.type = DimensionType.Polygon;
 			else if (j[k].type === undefined)
@@ -103,9 +131,27 @@ export class DimensionSet {
 			else
 				throw new Error(`Unrecognized dimension type ${j[k].type}`);
 
-			// make sure all values are strings
-			for (let i = 0; i < dim.values.length; i++)
-				dim.values[i] = dim.values[i] + '';
+			if (j[k].values instanceof Array) {
+				// values: [1,2,3,4,5]
+				for (let label of j[k].values) {
+					dim.values.push(new DimensionValue(label, '', label));
+				}
+			} else {
+				// values: {
+				//     "R101": { "title": "Stop", "icon": "stop.jpg" }
+				//     "R102": { "title": "Yield", "icon": "yield.jpg" }
+				// }
+				for (let label in j[k].values) {
+					let val = j[k].values[label];
+					dim.values.push(new DimensionValue(label, val.icon, val.title));
+				}
+			}
+
+			// make sure all labels are strings
+			for (let v of dim.values) {
+				v.label = v.label + '';
+				v.title = v.title + '';
+			}
 			ds.dims.push(dim);
 		}
 		ds.buildShortcutKeys();

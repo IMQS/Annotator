@@ -61,25 +61,283 @@
     "traffic_signs": {
         "explain": "Traffic Signs",
         "type": "polygon",
-        "values": [
-            "Stop",
-            "Children",
-            "Tractor",
-            "Tourism",
-            "Camera",
-            "Chevron Culvert",
-            "Traffic Lights",
-            "Green Directions",
-            "No Left Turn",
-            "No Right Turn",
-            "Left Turn Ahead",
-            "Right Turn Ahead",
-            "Warning (!)",
-            "Winding Road",
-            "No Entry",
-            "Concealed Entrance",
-            "60km",
-            "80km"
-        ]
+        "values": {
+            "za-R1": {
+                "title": "Stop",
+                "icon": "/traffic-signs/R1 Stop.jpg"
+            },
+            "za-R1.2": {
+                "title": "Stop Yield",
+                "icon": "/traffic-signs/R1.2 Stop Yield.jpg"
+            },
+            "za-R1.3": {
+                "title": "3-Way Stop",
+                "icon": "/traffic-signs/R1.3 3-Way Stop.jpg"
+            },
+            "za-R1.4": {
+                "title": "4-Way Stop",
+                "icon": "/traffic-signs/R1.4 4-Way Stop.jpg"
+            },
+            "za-R1.5": {
+                "title": "Stop Go",
+                "icon": "/traffic-signs/R1.5 Stop Go.jpg"
+            },
+            "za-R101-50": {
+                "title": "Minimum Speed",
+                "icon": "/traffic-signs/R101-50 Minimum Speed.jpg"
+            },
+            "za-R102-10": {
+                "title": "Vehicles Exceeding Mass Only",
+                "icon": "/traffic-signs/R102-10 Vehicles Exceeding Mass Only.jpg"
+            },
+            "za-R103": {
+                "title": "Keep Left",
+                "icon": "/traffic-signs/R103 Keep Left.jpg"
+            },
+            "za-R104": {
+                "title": "Keep Right",
+                "icon": "/traffic-signs/R104 Keep Right.jpg"
+            },
+            "za-R105": {
+                "title": "Proceed Left",
+                "icon": "/traffic-signs/R105 Proceed Left.jpg"
+            },
+            "za-R106": {
+                "title": "Proceed Right Only",
+                "icon": "/traffic-signs/R106 Proceed Right Only.jpg"
+            },
+            "za-R107": {
+                "title": "Proceed Straight Only",
+                "icon": "/traffic-signs/R107 Proceed Straight Only.jpg"
+            },
+            "za-R108": {
+                "title": "Turn Left Only",
+                "icon": "/traffic-signs/R108 Turn Left Only.jpg"
+            },
+            "za-R109": {
+                "title": "Turn Right Only",
+                "icon": "/traffic-signs/R109 Turn Right Only.jpg"
+            },
+            "za-R110": {
+                "title": "Pedestrians Only",
+                "icon": "/traffic-signs/R110 Pedestrians Only.jpg"
+            },
+            "za-R111": {
+                "title": "Cyclists Only",
+                "icon": "/traffic-signs/R111 Cyclists Only.jpg"
+            },
+            "za-R116": {
+                "title": "Motorcycles Only",
+                "icon": "/traffic-signs/R116 Motorcycles Only.jpg"
+            },
+            "za-R117": {
+                "title": "Motor Cars Only",
+                "icon": "/traffic-signs/R117 Motor Cars Only.jpg"
+            },
+            "za-R118": {
+                "title": "Taxis Only",
+                "icon": "/traffic-signs/R118 Taxis Only.jpg"
+            },
+            "za-R119": {
+                "title": "Minibuses Only",
+                "icon": "/traffic-signs/R119 Minibuses Only.jpg"
+            },
+            "za-R120": {
+                "title": "Midi Buses Only",
+                "icon": "/traffic-signs/R120 Midi Buses Only.jpg"
+            },
+            "za-R121": {
+                "title": "Buses Only",
+                "icon": "/traffic-signs/R121 Buses Only.jpg"
+            },
+            "za-R122": {
+                "title": "Delivery Vehicles Only",
+                "icon": "/traffic-signs/R122 Delivery Vehicles Only.jpg"
+            },
+            "za-R123": {
+                "title": "Goods Vehicles Only",
+                "icon": "/traffic-signs/R123 Goods Vehicles Only.jpg"
+            },
+            "za-R124-10": {
+                "title": "Goods Vehicles exceeding an Indicated GVM",
+                "icon": "/traffic-signs/R124-10 Goods Vehicles exceeding an Indicated GVM.jpg"
+            },
+            "za-R125": {
+                "title": "Construction Vehicles Only",
+                "icon": "/traffic-signs/R125 Construction Vehicles Only.jpg"
+            },
+            "za-R126": {
+                "title": "Vehicles Transporting Dangerous substances Only",
+                "icon": "/traffic-signs/R126 Vehicles Transporting Dangerous substances Only.jpg"
+            },
+            "za-R127": {
+                "title": "Abormal Vehicles Only",
+                "icon": "/traffic-signs/R127 Abormal Vehicles Only.jpg"
+            },
+            "za-R128": {
+                "title": "Rickshaws Only",
+                "icon": "/traffic-signs/R128 Rickshaws Only.jpg"
+            },
+            "za-R129": {
+                "title": "Tour Buses Only",
+                "icon": "/traffic-signs/R129 Tour Buses Only.jpg"
+            },
+            "za-R130": {
+                "title": "Agricultural Vehicles Only",
+                "icon": "/traffic-signs/R130 Agricultural Vehicles Only.jpg"
+            },
+            "za-R131": {
+                "title": "Animal-drawn Vehicles Only",
+                "icon": "/traffic-signs/R131 Animal-drawn Vehicles Only.jpg"
+            },
+            "za-R132": {
+                "title": "Pay Toll",
+                "icon": "/traffic-signs/R132 Pay Toll.jpg"
+            },
+            "za-R133": {
+                "title": "Switch Headlamps On",
+                "icon": "/traffic-signs/R133 Switch Headlamps On.jpg"
+            },
+            "za-R134": {
+                "title": "Buses and Minibuses Only",
+                "icon": "/traffic-signs/R134 Buses and Minibuses Only.jpg"
+            },
+            "za-R135": {
+                "title": "Buses and Midibuses Only",
+                "icon": "/traffic-signs/R135 Buses and Midibuses Only.jpg"
+            },
+            "za-R136": {
+                "title": "Buses, Midi and Minibuses Only",
+                "icon": "/traffic-signs/R136 Buses, Midi and Minibuses Only.jpg"
+            },
+            "za-R137": {
+                "title": "Roundabout",
+                "icon": "/traffic-signs/R137 Roundabout.jpg"
+            },
+            "za-R2": {
+                "title": "Yield",
+                "icon": "/traffic-signs/R2 Yield.jpg"
+            },
+            "za-R2.1": {
+                "title": "Yield to Pedestrians",
+                "icon": "/traffic-signs/R2.1 Yield to Pedestrians.jpg"
+            },
+            "za-R2.2": {
+                "title": "Yield at Traffic Cirlce",
+                "icon": "/traffic-signs/R2.2 Yield at Traffic Cirlce.jpg"
+            },
+            "za-R201-100": {
+                "title": "Speed Limit 100",
+                "icon": "/traffic-signs/R201-100 Speed Limit 100.jpg"
+            },
+            "za-R201-60": {
+                "title": "Speed Limit 60",
+                "icon": "/traffic-signs/R201-60 Speed Limit 60.jpg"
+            },
+            "za-R202-12": {
+                "title": "Mass Limit",
+                "icon": "/traffic-signs/R202-12 Mass Limit.jpg"
+            },
+            "za-R203-2": {
+                "title": "Axle Mass Limit",
+                "icon": "/traffic-signs/R203-2 Axle Mass Limit.jpg"
+            },
+            "za-R204-4.42": {
+                "title": "Height Limit",
+                "icon": "/traffic-signs/R204-4.42 Height Limit.jpg"
+            },
+            "za-R209": {
+                "title": "Left Turn Ahead Prohibited",
+                "icon": "/traffic-signs/R209 Left Turn Ahead Prohibited.jpg"
+            },
+            "za-R210": {
+                "title": "Right Turn Ahead Prohibited",
+                "icon": "/traffic-signs/R210 Right Turn Ahead Prohibited.jpg"
+            },
+            "za-R211": {
+                "title": "Left Turn Prohibited",
+                "icon": "/traffic-signs/R211 Left Turn Prohibited.jpg"
+            },
+            "za-R212": {
+                "title": "Right Turn Prohibited",
+                "icon": "/traffic-signs/R212 Right Turn Prohibited.jpg"
+            },
+            "za-R213": {
+                "title": "U-Turn Prohibited",
+                "icon": "/traffic-signs/R213 U-Turn Prohibited.jpg"
+            },
+            "za-R3": {
+                "title": "No Entry",
+                "icon": "/traffic-signs/R3 No Entry.jpg"
+            },
+            "za-R4.1": {
+                "title": "One-way Roadway Left",
+                "icon": "/traffic-signs/R4.1 One-way Roadway Left.jpg"
+            },
+            "za-R4.2": {
+                "title": "One-way Roadway Right",
+                "icon": "/traffic-signs/R4.2 One-way Roadway Right.jpg"
+            },
+            "za-R4.3": {
+                "title": "One-way Roadway Straight",
+                "icon": "/traffic-signs/R4.3 One-way Roadway Straight.jpg"
+            },
+            "za-R5": {
+                "title": "Pedestrian Priority",
+                "icon": "/traffic-signs/R5 Pedestrian Priority.jpg"
+            },
+            "za-R6": {
+                "title": "Yield to Oncoming Traffic",
+                "icon": "/traffic-signs/R6 Yield to Oncoming Traffic.jpg"
+            },
+            "za-W104": {
+                "title": "T-Junction",
+                "icon": "/traffic-signs/W104 T-Junction.jpg"
+            },
+            "za-W208": {
+                "title": "Winding Road Left",
+                "icon": "/traffic-signs/W208 Winding Road Left.jpg"
+            },
+            "za-W209": {
+                "title": "Winding Road Right",
+                "icon": "/traffic-signs/W209 Winding Road Right.jpg"
+            },
+            "za-W301": {
+                "title": "Traffic Signals Ahead",
+                "icon": "/traffic-signs/W301 Traffic Signals Ahead.jpg"
+            },
+            "za-W306": {
+                "title": "Pedestrian Crossing",
+                "icon": "/traffic-signs/W306 Pedestrian Crossing.jpg"
+            },
+            "za-W307": {
+                "title": "Pedestrians",
+                "icon": "/traffic-signs/W307 Pedestrians.jpg"
+            },
+            "za-W308": {
+                "title": "Children",
+                "icon": "/traffic-signs/W308 Children.jpg"
+            },
+            "za-W309": {
+                "title": "Pedal Cyclists",
+                "icon": "/traffic-signs/W309 Pedal Cyclists.jpg"
+            },
+            "za-W339": {
+                "title": "General Warning",
+                "icon": "/traffic-signs/W339 General Warning.jpg"
+            },
+            "za-W352": {
+                "title": "Agricultural Vehicles",
+                "icon": "/traffic-signs/W352 Agricultural Vehicles.jpg"
+            },
+            "za-W401": {
+                "title": "Danger Plate Left",
+                "icon": "/traffic-signs/W401 Danger Plate Left.jpg"
+            },
+            "za-W402": {
+                "title": "Danger Plate Right",
+                "icon": "/traffic-signs/W402 Danger Plate Right.jpg"
+            }
+        }
     }
 }

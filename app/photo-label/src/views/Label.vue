@@ -6,21 +6,31 @@
 					<router-link to='/' class='backBtn'>⬅</router-link>
 					<div class='title'>{{dim ? dim.niceName : 'none'}}</div>
 				</div>
-				<div style='display: flex; margin-bottom: 0.5em'>
-					<div class='skLeft'>⌨️</div>
-					<div class='skRight'>value</div>
+				<div v-if='dim && isPolygonDim' style='display: flex; flex-direction: column; max-height: 400px; overflow-y: auto'>
+					<label-image v-for='val in dim.values' :key='val.label' :value='val' :isActive='activeLabel === val.label' @click='onLabelRowClick(val)' />
 				</div>
-				<div v-if='dim'>
-					<div v-for='val in dim.values' :key='val' class='labelRow' :class='{activeLabelRow: activeLabel === val}' @click='onLabelRowClick(val)'>
-						<div class='skLeft'>{{dim.valueToShortcutKey[val]}}</div>
-						<div class='skRight'>{{val}}</div>
+				<div v-else-if='dim'>
+					<div style='display: flex; margin-bottom: 0.5em'>
+						<div class='skLeft'>⌨️</div>
+						<div class='skRight'>value</div>
+					</div>
+					<div v-for='val in dim.values' :key='val.label' class='labelRow' :class='{activeLabelRow: activeLabel === val.label}' @click='onLabelRowClick(val)'>
+						<div class='skLeft'>{{dim.valueToShortcutKey[val.title]}}</div>
+						<div class='skRight'>{{val.title}}</div>
 					</div>
 					<div class='labelRow'><div class='skLeft'>space</div><div class='skRight' style='color: #a55'>remove label</div></div>
 				</div>
 				<div class='optionsGroup'>
 					<label><input type='checkbox' v-model='drawTextOnLabels' />Show Labels</label>
 				</div>
-				<div style='margin: 1rem 0.5rem; font-size: 0.85rem; color: #777;'>
+				<div v-if='isPolygonDim' style='margin: 1rem 0.5rem; font-size: 0.85rem; color: #777;'>
+					Press left/right keys to scan through the images.
+					<br><br>
+					<em>CTRL</em> delete vertex
+					<br>
+					<em>ALT</em> delete polygon
+				</div>
+				<div v-else style='margin: 1rem 0.5rem; font-size: 0.85rem; color: #777;'>
 					Press the shortcut key in the left column to label the image.
 					<br><br>
 					Press left/right keys to scan through the images.
@@ -64,10 +74,11 @@
 
 <script lang="ts">
 import { Prop, Watch, Component, Vue } from 'vue-property-decorator';
-import { Dimension, DimensionSet, DimensionType, DirtyRegion, DirtyRegionQueue, LabelRegion } from '@/label';
+import { Dimension, DimensionSet, DimensionType, DirtyRegion, DirtyRegionQueue, LabelRegion, DimensionValue } from '@/label';
 import ImageScroller from '@/components/ImageScroller.vue';
 import DatasetPicker from '@/components/DatasetPicker.vue';
 import SvgButton from '@/components/SvgButton.vue';
+import LabelImage from '@/components/LabelImage.vue';
 import * as draw from '@/draw';
 import { ImageLabelSet } from '@/label';
 
@@ -76,6 +87,7 @@ import { ImageLabelSet } from '@/label';
 		ImageScroller,
 		DatasetPicker,
 		SvgButton,
+		LabelImage,
 	},
 })
 export default class Label extends Vue {
@@ -132,6 +144,12 @@ export default class Label extends Vue {
 		if (this.dim === null)
 			return true;
 		return this.dim.type === DimensionType.WholeImage;
+	}
+
+	get isPolygonDim(): boolean {
+		if (this.dim === null)
+			return true;
+		return this.dim.type === DimensionType.Polygon;
 	}
 
 	get scrollPos(): number {
@@ -237,8 +255,8 @@ export default class Label extends Vue {
 			this.ctrlKeyDown = false;
 	}
 
-	onLabelRowClick(dimid: string) {
-		this.activeLabel = dimid;
+	onLabelRowClick(val: DimensionValue) {
+		this.activeLabel = val.label;
 	}
 
 	onBrightnessChange(pos: number) {
@@ -548,6 +566,13 @@ export default class Label extends Vue {
 	border: solid 1px #e0e0e0;
 	border-radius: 3px;
 	user-select: none;
+}
+.iconLabelList {
+	display: flex;
+	flex-direction: column;
+	max-height: 500px;
+	overflow-y: auto;
+	position: relative;
 }
 .labelTxt {
 	font-size: 15rem;

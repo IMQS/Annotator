@@ -123,12 +123,14 @@ export class Draw {
 
 		this.paintPolygons(cx);
 
-		let pad = 5;
-		cx.strokeStyle = 'rgba(55,150,250, 0.7)';
-		cx.lineWidth = 5;
-		let lwH = cx.lineWidth / 2;
-		let usableY = canvas.height * (1 - this.usableFramePortion);
-		cx.strokeRect(pad, usableY, canvas.width - pad * 2 + lwH, canvas.height - pad - usableY + lwH);
+		if (this.dim && this.dim.type == DimensionType.WholeImage) {
+			let pad = 5;
+			cx.strokeStyle = 'rgba(55,150,250, 0.7)';
+			cx.lineWidth = 5;
+			let lwH = cx.lineWidth / 2;
+			let usableY = canvas.height * (1 - this.usableFramePortion);
+			cx.strokeRect(pad, usableY, canvas.width - pad * 2 + lwH, canvas.height - pad - usableY + lwH);
+		}
 	}
 
 	paintPolygons(cx: CanvasRenderingContext2D) {
@@ -170,9 +172,11 @@ export class Draw {
 				cx.fill();
 			}
 			if (this.drawText && this.dim !== null && region.labels[this.dim.id] !== undefined) {
+				let val = this.dim.label2Value(region.labels[this.dim.id]);
 				let mx = (minP.x + maxP.x) / 2;
 				let my = (minP.y + maxP.y) / 2;
-				this.drawTextWithHalo(cx, region.labels[this.dim.id], mx, my);
+				let title = val !== null ? val.title : 'UNRECOGNIZED';
+				this.drawTextWithHalo(cx, title, mx, my);
 			}
 		}
 	}
