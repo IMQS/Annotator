@@ -523,8 +523,12 @@
                 "icon": "/traffic-signs/W106 Skew T-junction Right.jpg"
             },
             "za-W107": {
+                "title": "Side Junction from Left",
+                "icon": "/traffic-signs/W107 Side Junction from Left.jpg"
+            },
+            "za-W108": {
                 "title": "Side Junction from Right",
-                "icon": "/traffic-signs/W107 Side Junction from Right.jpg"
+                "icon": "/traffic-signs/W108 Side Junction from Right.jpg"
             },
             "za-W109": {
                 "title": "Staggered Junctions Right Left",

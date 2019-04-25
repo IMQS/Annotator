@@ -14,6 +14,8 @@ for imgPath in files:
     parts = imgPath.stem.split(' ')
     code = 'za-' + parts[0]
     title = ' '.join(parts[1:])
+    if code in jSigns:
+        raise Exception(code + " appears twice")
     jSigns[code] = {
         'title': title,
         'icon': '/traffic-signs/' + imgPath.name,
