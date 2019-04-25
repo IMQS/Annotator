@@ -113,6 +113,8 @@ void Server::ListenAndRun(int port) {
 			SendJson(w, AllPhotos);
 		} else if (r->Path == "/api/get_image") {
 			SendFile(w, path::SafeJoin(PhotoRoot, r->QueryVal("image")));
+		} else if (r->Path == "/api/report") {
+			Report(w, r);
 		} else if (strings::StartsWith(r->Path, "/api/db/")) {
 			dba::Tx* tx  = nullptr;
 			auto     err = DB.DB->Begin(tx);
@@ -431,7 +433,7 @@ void Server::ServeStatic(phttp::Response& w, phttp::RequestPtr r) {
 			break;
 	}
 
-	if (clean == "/" || clean == "" || clean.find("/label/") == 0)
+	if (clean == "/" || clean == "" || clean.find("/label") == 0 || clean.find("/report") == 0)
 		clean = "index.html";
 
 	auto file = path::Join(StaticRoot, clean);
@@ -460,6 +462,26 @@ void Server::ServeStatic(phttp::Response& w, phttp::RequestPtr r) {
 	else if (ext == ".js.map")
 		w.SetHeader("Content-Type", "application/json");
 	w.Status = 200;
+}
+
+void Server::Report(phttp::Response& w, phttp::RequestPtr r) {
+	auto           rows = DB.DB->Query("SELECT count(*),min(dimension),min(value) FROM label GROUP BY dimension,value");
+	nlohmann::json jDoc;
+	for (auto row : rows) {
+		int64_t count = 0;
+		string  dim;
+		string  val;
+		row.Scan(count, dim, val);
+		jDoc["dimensions"][dim][val]["count"] = count;
+	}
+	rows = DB.DB->Query("SELECT count(*),min(author) FROM label GROUP BY author ORDER BY count(*) DESC");
+	for (auto row : rows) {
+		int64_t count = 0;
+		string  author;
+		row.Scan(count, author);
+		jDoc["authors"][author]["count"] = count;
+	}
+	SendJson(w, jDoc);
 }
 
 } // namespace label

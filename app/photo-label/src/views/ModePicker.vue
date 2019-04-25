@@ -11,6 +11,7 @@
 				<span style='font-size: 0.9rem; color: #281; margin-left: 1em'>{{dim.niceValues}}</span>
 			</button>
 		</div>
+	<button style='margin-top:30px; max-width: 10em' @click='onReportClick'>See Report</button>
 	</div>
   </div>
 </template>
@@ -35,6 +36,10 @@ export default class ModePicker extends Vue {
 
 		localStorage.setItem('author', this.author);
 		this.$router.push({ name: 'label', params: { dimid: dim.id } });
+	}
+
+	onReportClick() {
+		this.$router.push({ name: 'report' });
 	}
 
 	mounted() {

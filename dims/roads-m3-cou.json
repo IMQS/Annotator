@@ -254,6 +254,22 @@
                 "title": "Speed Limit 120",
                 "icon": "/traffic-signs/R201-120 Speed Limit 120.jpg"
             },
+            "za-R201-20": {
+                "title": "Speed Limit 20",
+                "icon": "/traffic-signs/R201-20 Speed Limit 20.jpg"
+            },
+            "za-R201-30": {
+                "title": "Speed Limit 30",
+                "icon": "/traffic-signs/R201-30 Speed Limit 30.jpg"
+            },
+            "za-R201-40": {
+                "title": "Speed Limit 40",
+                "icon": "/traffic-signs/R201-40 Speed Limit 40.jpg"
+            },
+            "za-R201-50": {
+                "title": "Speed Limit 50",
+                "icon": "/traffic-signs/R201-50 Speed Limit 50.jpg"
+            },
             "za-R201-60": {
                 "title": "Speed Limit 60",
                 "icon": "/traffic-signs/R201-60 Speed Limit 60.jpg"
@@ -273,6 +289,10 @@
             "za-R202-12": {
                 "title": "Mass Limit",
                 "icon": "/traffic-signs/R202-12 Mass Limit.jpg"
+            },
+            "za-R202-8": {
+                "title": "Mass Limit 8t",
+                "icon": "/traffic-signs/R202-8 Mass Limit 8t.jpg"
             },
             "za-R203-2": {
                 "title": "Axle Mass Limit",
