@@ -26,9 +26,13 @@
 				<div v-if='isPolygonDim' style='margin: 1rem 0.5rem; font-size: 0.85rem; color: #777;'>
 					Press left/right keys to scan through the images.
 					<br><br>
-					<em>CTRL</em> delete vertex
+					<span class='keyTxt'>CTRL</span> delete vertex
 					<br>
-					<em>ALT</em> delete polygon
+					<span class='keyTxt'>ALT</span> delete polygon
+					<br>
+					<span class='keyTxt'>Right Click</span> finish
+					<br>
+					<span class='keyTxt'>CTRL + Right Click</span> finish circle
 				</div>
 				<div v-else style='margin: 1rem 0.5rem; font-size: 0.85rem; color: #777;'>
 					Press the shortcut key in the left column to label the image.
@@ -578,6 +582,11 @@ export default class Label extends Vue {
 	font-size: 15rem;
 	color: #000;
 	text-shadow: 0px 0px 20px #fff, 0px 0px 30px #fff, 0px 0px 40px #fff;
+}
+.keyTxt {
+	display: inline-block;
+	font-style: italic;
+	width: 10em;
 }
 a {
 	text-decoration: none;

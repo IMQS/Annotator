@@ -41,6 +41,8 @@ export class Draw {
 	public labels: ImageLabelSet = new ImageLabelSet();
 	public curRegion: LabelRegion | null = null;
 	public curDragIdx: number = -1;
+	public ghostPoly: Polygon | null = null;
+	public busyUpdatingGhost: boolean = false;
 	public minVxDragPx = 30;
 	public minClickPx = 30;
 	public vpScale: Vec2 = new Vec2(0, 0); // scale from image pixels to canvas pixels
@@ -121,6 +123,8 @@ export class Draw {
 		let p2 = this.img2can(new Vec2(this.img.naturalWidth, this.img.naturalHeight));
 		cx.drawImage(this.img, p1.x, p1.y, p2.x - p1.x, p2.y - p1.y);
 
+		this.drawGhost(cx);
+
 		this.paintPolygons(cx);
 
 		if (this.dim && this.dim.type === DimensionType.WholeImage) {
@@ -179,6 +183,21 @@ export class Draw {
 				this.drawTextWithHalo(cx, title, mx, my);
 			}
 		}
+	}
+
+	drawGhost(cx: CanvasRenderingContext2D) {
+		if (this.ghostPoly === null)
+			return;
+		cx.beginPath();
+		for (let p of this.ghostPoly.vx) {
+			let pt = this.img2can(p);
+			cx.lineTo(pt.x, pt.y);
+		}
+		cx.closePath();
+		cx.lineWidth = 3.0;
+		cx.strokeStyle = 'rgba(0,180,0,1.0)';
+		cx.setLineDash([2, 2]);
+		cx.stroke();
 	}
 
 	drawTextWithHalo(cx: CanvasRenderingContext2D, txt: string, x: number, y: number) {
@@ -271,10 +290,14 @@ export class Draw {
 				this.labels.regions.push(this.curRegion);
 			}
 		} else if (this.state === State.NewPolygon) {
-			if (ev.button === 2) {
+			if (ev.button === 2 || (ev.button === 0 && ev.ctrlKey)) {
 				ev.preventDefault();
+				if (ev.ctrlKey && this.ghostPoly !== null) {
+					this.curRegion!.polygon = this.ghostPoly;
+				} else {
+					this.curRegion!.polygon!.vx.pop();
+				}
 				let poly = this.curRegion!.polygon!;
-				poly.vx.pop();
 				if (poly.vx.length < 3) {
 					// delete if not at least 3 vertices
 					this.labels.regions.pop();
@@ -283,6 +306,7 @@ export class Draw {
 				}
 				this.state = State.None;
 				this.curRegion = null;
+				this.ghostPoly = null;
 				this.paint();
 			} else {
 				this.curRegion!.polygon!.vx.push(clickPtWorld);
@@ -318,10 +342,45 @@ export class Draw {
 		if (this.state === State.NewPolygon) {
 			let p = this.curRegion!.polygon!;
 			p.vx[p.vx.length - 1] = ptWorld;
+			if (p.vx.length === 4)
+				this.updateGhost();
+			else
+				this.ghostPoly = null;
 		} else if (this.state === State.DragVertex) {
 			this.curRegion!.polygon!.vx[this.curDragIdx] = ptWorld;
 		}
 		this.paint();
+	}
+
+	private updateGhost() {
+		if (this.busyUpdatingGhost)
+			return;
+		this.busyUpdatingGhost = true;
+
+		let pts = '';
+		for (let p of this.curRegion!.polygon!.vx) {
+			pts += p.x + ' ' + p.y + ',';
+		}
+		pts = pts.substr(0, pts.length - 1);
+		let $this = this;
+
+		fetch('/api/solve?circle_points=' + encodeURIComponent(pts), { method: 'GET' }).then((response) => {
+			$this.busyUpdatingGhost = false;
+			if (!response.ok) {
+				console.log('solve: ' + response.status + ' ' + response.statusText);
+			} else {
+				response.json().then((jvals) => {
+					$this.ghostPoly = new Polygon();
+					for (let p of jvals) {
+						$this.ghostPoly.vx.push(new Vec2(p[0], p[1]));
+					}
+					this.paint();
+				});
+			}
+		}).catch((reason) => {
+			$this.busyUpdatingGhost = false;
+			console.log('solve: ' + reason);
+		});
 	}
 
 	// Find closest polygon by vertex

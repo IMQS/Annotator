@@ -46,6 +46,7 @@ private:
 	Error ApiGetLabels(phttp::Response& w, phttp::RequestPtr r, dba::Tx* tx);
 	void  ServeStatic(phttp::Response& w, phttp::RequestPtr r);
 	void  Report(phttp::Response& w, phttp::RequestPtr r);
+	void  Solve(phttp::Response& w, phttp::RequestPtr r);
 };
 
 } // namespace label

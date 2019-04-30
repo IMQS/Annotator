@@ -549,6 +549,7 @@ local torch = ExternalLibrary {
 		Includes = {
 			--"deps/torch/include",
 			torch_root .. "/include",
+			torch_root .. "/include/torch/csrc/api/include",
 		},
 	},
 }
@@ -1144,7 +1145,8 @@ local LabelServer = Program {
 	Name = "LabelServer",
 	Depends = {
 		--winCrt, Video, dbutil, dba, projwrap, phttp, uberlog, tsf, gfx, pal, sqlite
-		winCrt, dbutil, dba, projwrap, phttp, uberlog, tsf, gfx, pal, sqlite
+		winCrt, dbutil, dba, projwrap, phttp, uberlog, tsf, gfx, pal, sqlite,
+		CUDA, torch, rpathLink -- We need to link with rpath in order to allow libraries such as libmkl_intel_lp64.so to be discovered
 	},
 	Env = {
 		PROGOPTS = { "/SUBSYSTEM:CONSOLE"; Config = winFilter },

@@ -37,9 +37,9 @@ RUN . ~/conda/bin/activate \
  && conda install -c pytorch magma-cuda100
 
 # This branch here is just a totally random branch that I know was working for me.
-# This was the latest master, on 2019-03-30
+# This was the latest master, on 2019-04-29
 RUN git clone --recursive https://github.com/pytorch/pytorch ~/pytorch \
- && git -C ~/pytorch checkout 96456bfa4cf9394c9c926b143cf724a09901908d \
+ && git -C ~/pytorch checkout 841360029afe09263c6e1640940ecad8a2858d33 \
  && git -C ~/pytorch submodule update --recursive
 
 # This takes at least one hour on a 4 core machine

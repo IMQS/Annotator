@@ -13,7 +13,9 @@
             "includePath": [
                 "${workspaceFolder}",
                 "${workspaceFolder}/../..",
-                "${workspaceFolder}/../../third_party"
+                "${workspaceFolder}/../../third_party",
+                "/usr/local/libtorch/include",
+                "/usr/local/libtorch/include/torch/csrc/api/include"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/clang",
