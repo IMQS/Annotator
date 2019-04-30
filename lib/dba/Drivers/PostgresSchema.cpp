@@ -302,7 +302,7 @@ void PostgresSchemaReader::DecodeField(schema::Field& f, const Attrib& name, con
 	else if (strcmp(dtype, "USER-DEFINED") == 0)                   f.Type = Type::Null;    // PostGIS geometry (from information_schema)
 	else if (strcmp(dtype, "GEOMETRY") == 0)                       f.Type = Type::GeomAny; // PostGIS geometry (from pg_attribute)
 	else if (strcmp(dtype, "NUMERIC") == 0)                        f.Type = Type::Null;
-	else if (strcmp(dtype, "JSONB") == 0)                          f.Type = Type::Text;    // Quick way of implementing JSONB support (first char indicates JSONB version)
+	else if (strcmp(dtype, "JSONB") == 0)                          f.Type = Type::JSONB;
 	else
 	{
 		// this line left here for breakpoint settability
@@ -419,6 +419,19 @@ Error PostgresSchemaWriter::AddField(Executor* ex, std::string tableSpace, const
 	s.Fmt("ALTER TABLE %Q ADD COLUMN %Q ", table, field.Name);
 	s.FormatType(field.Type, field.IsTypeGeom() ? field.SRID : field.Width, field.Flags);
 	if (field.NotNull())
+		s += " NOT NULL";
+
+	return ex->Exec(s);
+}
+
+Error PostgresSchemaWriter::AlterField(Executor* ex, std::string tableSpace, const std::string& table, const schema::Field& srcField, const schema::Field& dstField) {
+	auto s = ex->Sql();
+	if (tableSpace == "")
+		tableSpace = PostgresDriver::DefaultTableSpace;
+
+	s.Fmt("ALTER TABLE %Q ALTER COLUMN %Q TYPE ", table, dstField.Name);
+	s.FormatType(srcField.Type, srcField.IsTypeGeom() ? srcField.SRID : srcField.Width, srcField.Flags);
+	if (srcField.NotNull())
 		s += " NOT NULL";
 
 	return ex->Exec(s);

@@ -67,8 +67,13 @@
 // disabling this for the rest of our code too.
 #ifdef _MSC_VER
 #pragma warning(disable : 4503)
+#pragma warning(push)
+#pragma warning(disable : 6326 6031)
 #endif
 #include <nlohmann-json/json.hpp>
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 #include <tinyxml2/tinyxml2.h>
 #include <zlib.h>

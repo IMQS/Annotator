@@ -32,17 +32,17 @@ IMQS_PAL_API Error ParseFile(const std::string& filename, rapidjson::Document& d
 	return ParseString(buf, doc);
 }
 
-IMQS_PAL_API std::string WriteString(const rapidjson::Document& doc) {
+IMQS_PAL_API std::string WriteString(const rapidjson::Value& val) {
 	rapidjson::StringBuffer                          buffer;
 	rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buffer);
-	doc.Accept(writer);
+	val.Accept(writer);
 	return buffer.GetString();
 }
 
-IMQS_PAL_API Error WriteFile(const rapidjson::Document& doc, const std::string& filename) {
+IMQS_PAL_API Error WriteFile(const rapidjson::Value& val, const std::string& filename) {
 	rapidjson::StringBuffer                          buffer;
 	rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buffer);
-	doc.Accept(writer);
+	val.Accept(writer);
 	return os::WriteWholeFile(filename, buffer.GetString(), buffer.GetSize());
 }
 

@@ -78,6 +78,7 @@ static Oid ToPostgresType(Type t) {
 	case Type::Date: return (Oid) TIMESTAMPOID;
 	case Type::Time: return (Oid) TIMEOID;
 	case Type::Bin: return (Oid) BYTEAOID;
+	case Type::JSONB: return (Oid) JSONBOID;
 	case Type::GeomPoint:
 	case Type::GeomMultiPoint:
 	case Type::GeomPolyline:
@@ -590,7 +591,8 @@ SqlDialectFlags PostgresDialect::Flags() {
 	       SqlDialectFlags::SpatialIndex |
 	       SqlDialectFlags::GeomSpecificFieldTypes |
 	       SqlDialectFlags::Int16 |
-	       SqlDialectFlags::Float;
+	       SqlDialectFlags::Float |
+	       SqlDialectFlags::JSONB;
 }
 
 imqs::dba::Syntax PostgresDialect::Syntax() {
@@ -698,6 +700,7 @@ void PostgresDialect::FormatType(SqlStr& s, Type type, int width_or_srid, TypeFl
 	case Type::Date: s += "TIMESTAMP WITHOUT TIME ZONE"; break;
 	case Type::Time: s += "TIME WITHOUT TIME ZONE"; break;
 	case Type::Bin: s += "BYTEA"; break;
+	case Type::JSONB: s += "JSONB"; break;
 	case Type::GeomPoint: s.Fmt("geometry(Point%v, %v)", geomSuffix, width_or_srid); break;
 	case Type::GeomMultiPoint: s.Fmt("geometry(MultiPoint%v, %v)", geomSuffix, width_or_srid); break;
 	case Type::GeomPolyline:
@@ -816,9 +819,16 @@ Error PostgresRows::Get(size_t col, Attrib& val, Allocator* alloc) {
 	case NAMEOID:
 	case TEXTOID:
 	case VARCHAROID:
-	case JSONBOID:
 	case ARRAYOID:
 		val.SetText((const char*) pval, (size_t) len, alloc);
+		break;
+	case JSONBOID:
+		if (len >= 1) {
+			if (pval[0] == 1)
+				val.SetJSONB((const char*) pval + 1, (size_t) len - 1, alloc);
+			else
+				IMQS_DIE_MSG(tsf::fmt("Unrecognized JSONB encoding (%v) in PostgresRows::Get", (int) pval[0]).c_str());
+		}
 		break;
 	case UNKNOWNOID:
 		// See comment at UNKNOWNOID definition
@@ -845,7 +855,7 @@ Error PostgresRows::Get(size_t col, Attrib& val, Allocator* alloc) {
 		break;
 	}
 	default:
-		IMQS_DIE_MSG(tsf::fmt("Unrecognized OID(%v) in PostgresRows::Get", ct).c_str());
+		IMQS_DIE_MSG(tsf::fmt("Unrecognized OID (%v) in PostgresRows::Get", ct).c_str());
 	}
 
 	return Error();
@@ -883,8 +893,9 @@ Type PostgresRows::FromPostgresType(Oid t) {
 	case NAMEOID:
 	case TEXTOID:
 	case CHAROID:
-	case JSONBOID:
 		return Type::Text;
+	case JSONBOID:
+		return Type::JSONB;
 	case UNKNOWNOID:
 		// See comment at UNKNOWNOID definition
 		return Type::Text;
@@ -1052,6 +1063,14 @@ Error PostgresStmt::PackParams(const Attrib** params) {
 				paramPos = (intptr_t) p->Value.Text.Data;
 				len      = -(p->Value.Text.Size + 2);
 				break;
+			case Type::JSONB:
+				// We need to prepend the JSONB output with a single '1' byte, which is the version of the transport.
+				// See jsonb_recv in https://github.com/postgres/postgres/blob/master/src/backend/utils/adt/jsonb.c#L113 for details.
+				// When libpq sends JSONB back to us, it doesn't include that byte.
+				ParamBuf.WriteUint8(1);
+				ParamBuf.Write(p->Value.Text.Data, p->Value.Text.Size);
+				len = p->Value.Text.Size + 1;
+				break;
 			case Type::Guid:
 				WriteGuidBE(*p->Value.Guid, ParamBuf);
 				len = 16;
@@ -1185,6 +1204,11 @@ static void PackBinaryCopy(io::Buffer& buf, const Attrib* val) {
 		break;
 	case Type::Text:
 		buf.WriteUint32BE(val->Value.Text.Size);
+		buf.Add(val->Value.Text.Data, val->Value.Text.Size);
+		break;
+	case Type::JSONB:
+		buf.WriteUint32BE(val->Value.Text.Size + 1); // version of JSON encoding
+		buf.WriteUint8(1);
 		buf.Add(val->Value.Text.Data, val->Value.Text.Size);
 		break;
 	case Type::Bin:

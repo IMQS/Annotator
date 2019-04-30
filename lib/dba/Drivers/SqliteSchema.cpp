@@ -391,6 +391,10 @@ Error SqliteSchemaWriter::AddField(Executor* ex, std::string tableSpace, const s
 	return Error("SqliteSchemaWriter::AddField not implemented");
 }
 
+Error SqliteSchemaWriter::AlterField(Executor* ex, std::string tableSpace, const std::string& table, const schema::Field& srcField, const schema::Field& dstField) {
+	return Error("SqliteSchemaWriter::AlterField not implemented");
+}
+
 Error SqliteSchemaWriter::DropField(Executor* ex, std::string tableSpace, const std::string& table, const std::string& field) {
 	// I don't think this is supported by SQLite
 	return Error("SqliteSchemaWriter::DropField not implemented");

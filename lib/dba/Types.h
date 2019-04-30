@@ -30,8 +30,9 @@ inline TypeFlags& operator|=(TypeFlags& a, TypeFlags b) {
 // 3. Possibly make it optional for a driver to support, by adding a new flag such as SqlDialectFlags::Float
 // 4. Add support for it to the relevant drivers, and add unit tests in TestDrivers.cpp. Don't neglect TestDrivers_Postgres where we test COPY
 // 5. Add relevant tests in TestDriver_SchemaReader
-// 6. Search for "case Type::Int32" to find many other switch statements
-// 7. Search for "case dba::Type::Int32" to find many other switch statements
+// 6. Add to parse_type() in SchemaParser.cpp
+// 7. Search for "case Type::Int32" to find many other switch statements
+// 8. Search for "case dba::Type::Int32" to find many other switch statements
 enum class Type : uint8_t {
 	Null   = 0, // This is a meta-type, because it is only used to indicate a null feature. It is not a real field type.
 	Bool   = 1,
@@ -45,9 +46,10 @@ enum class Type : uint8_t {
 	// A Date & Time measurement (spanning any conceivable point in time).
 	// For databases that have a day-only measurement (ie no time of the day), this
 	// field is used. Most databases call this 'TimeStamp'.
-	Date = 9,
-	Time = 10, // A Time only measurement (spanning the 24 hours of a day). Most databases call this 'Time'.
-	Bin  = 11, // Generic binary field.
+	Date  = 9,
+	Time  = 10, // A Time only measurement (spanning the 24 hours of a day). Most databases call this 'Time'.
+	Bin   = 11, // Generic binary field.
+	JSONB = 12, // Binary JSON. Inside Attrib, we store it as plain old textual JSON.
 	// Geometry has the magic property that bit 5 (decimal 16) is always set.
 	GeomPoint      = 16,
 	GeomMultiPoint = 17,
@@ -94,6 +96,7 @@ static const char* FieldNameTable_Names[] =
         "guid" TWELVE,
         "time" TWELVE,
         "bin\0" TWELVE,
+        "jsonb\0\0\0" EIGHT,
         "point\0\0\0" EIGHT,
         "multipoint\0\0" FOUR,
         "polyline" EIGHT,
@@ -124,6 +127,7 @@ inline const char* FieldTypeToString(Type ft, TypeFlags typeFlags = TypeFlags::N
 	case Type::Guid: return FieldNameTable_Names[10];
 	case Type::Time: return FieldNameTable_Names[11];
 	case Type::Bin: return FieldNameTable_Names[12];
+	case Type::JSONB: return FieldNameTable_Names[13];
 	case Type::GeomPoint:
 		/*if (hasZ && hasM)	return "pointzm";
 		else if (hasZ)	return "pointz";
@@ -197,16 +201,17 @@ enum GeomPartFlags : uint32_t {
 
 enum class SqlDialectFlags : uint64_t {
 	None                         = 0,
-	MultiRowInsert               = 1,   // DB can accept INSERT INTO table (a,b,c) VALUES ($1,$2,$3),($4,$5,$6),($7,$8,$9),...
-	MultiRowDummyUnionInsert     = 2,   // DB can accept INSERT INTO table (a,b,c) (SELECT $1,$2,$3 FROM dummy UNION SELECT $4,$5,$6 FROM dummy UNION ...)
-	AlterSchemaInsideTransaction = 4,   // DB can perform schema changes inside a transaction
-	UUID                         = 8,   // DB has a UUID field type
-	GeomZ                        = 16,  // DB geometry can store a "Z" dimension
-	GeomM                        = 32,  // DB geometry can store an "M" dimension
-	SpatialIndex                 = 64,  // DB can create a spatial index
-	GeomSpecificFieldTypes       = 128, // DB has specific geometry column types such as point, linestring, etc. If flag is not present, then all geometry goes into the same type of column
-	Int16                        = 256, // DB has a 16-bit integer type (signed)
-	Float                        = 512, // DB has a float32 type
+	MultiRowInsert               = 1,    // DB can accept INSERT INTO table (a,b,c) VALUES ($1,$2,$3),($4,$5,$6),($7,$8,$9),...
+	MultiRowDummyUnionInsert     = 2,    // DB can accept INSERT INTO table (a,b,c) (SELECT $1,$2,$3 FROM dummy UNION SELECT $4,$5,$6 FROM dummy UNION ...)
+	AlterSchemaInsideTransaction = 4,    // DB can perform schema changes inside a transaction
+	UUID                         = 8,    // DB has a UUID field type
+	GeomZ                        = 16,   // DB geometry can store a "Z" dimension
+	GeomM                        = 32,   // DB geometry can store an "M" dimension
+	SpatialIndex                 = 64,   // DB can create a spatial index
+	GeomSpecificFieldTypes       = 128,  // DB has specific geometry column types such as point, linestring, etc. If flag is not present, then all geometry goes into the same type of column
+	Int16                        = 256,  // DB has a 16-bit integer type (signed)
+	Float                        = 512,  // DB has a float32 type
+	JSONB                        = 1024, // DB has a JSONB type
 };
 
 inline SqlDialectFlags operator|(SqlDialectFlags a, SqlDialectFlags b) { return (SqlDialectFlags)((uint64_t) a | (uint64_t) b); }

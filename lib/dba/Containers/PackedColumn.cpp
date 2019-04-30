@@ -120,6 +120,7 @@ bool PackedColumn::Store(size_t i, const Attrib& val) {
 	case dba::Type::Float: needBytes = 4; break;
 	case dba::Type::Double: needBytes = 8; break;
 	case dba::Type::Text:
+	case dba::Type::JSONB:
 		if (val.Type != Type::Null) {
 			needBytes = val.Value.Text.Size + 1; // +1 for null terminator
 			valPtr    = val.Value.Text.Data;
@@ -210,6 +211,7 @@ bool PackedColumn::Store(size_t i, const Attrib& val) {
 		case dba::Type::GeomPolygon:
 			val.GeomCopyRawOut(Data + DataLen);
 			break;
+		case dba::Type::JSONB:
 		case dba::Type::Text:
 			memcpy(Data + DataLen, val.Value.Text.Data, needBytes); // val.Value.Text.Data is null terminated, and needBytes includes that terminator
 			break;
