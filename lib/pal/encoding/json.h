@@ -9,8 +9,8 @@ namespace rj {
 IMQS_PAL_API Error ParseString(const char* str, size_t len, rapidjson::Document& doc);
 IMQS_PAL_API Error ParseString(const std::string& str, rapidjson::Document& doc);
 IMQS_PAL_API Error ParseFile(const std::string& filename, rapidjson::Document& doc);
-IMQS_PAL_API std::string WriteString(const rapidjson::Document& doc);
-IMQS_PAL_API Error WriteFile(const rapidjson::Document& doc, const std::string& filename);
+IMQS_PAL_API std::string WriteString(const rapidjson::Value& val);
+IMQS_PAL_API Error WriteFile(const rapidjson::Value& val, const std::string& filename);
 
 IMQS_PAL_API void Set(rapidjson::Value& obj, const char* key, const char* value, rapidjson::MemoryPoolAllocator<>* allocator);
 IMQS_PAL_API void Set(rapidjson::Value& obj, const char* key, const std::string& value, rapidjson::MemoryPoolAllocator<>* allocator);

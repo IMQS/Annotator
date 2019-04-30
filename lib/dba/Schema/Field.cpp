@@ -78,6 +78,7 @@ Error Field::ParseType(const char* ftype, size_t len) {
 	case "guid"_crc32: Type = Type::Guid; break;
 	case "time"_crc32: Type = Type::Time; break;
 	case "bin"_crc32: Type = Type::Bin; break;
+	case "jsonb"_crc32: Type = Type::JSONB; break;
 	case "point"_crc32: Type = Type::GeomPoint; break;
 	case "multipoint"_crc32: Type = Type::GeomMultiPoint; break;
 	case "polyline"_crc32: Type = Type::GeomPolyline; break;

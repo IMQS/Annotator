@@ -39,6 +39,8 @@ Attrib::Attrib(const char* str, Allocator* alloc) : Type(Type::Null), Flags(0) {
 Attrib::Attrib(const void* buf, size_t len, dba::Type type, Allocator* alloc) : Type(Type::Null), Flags(0) {
 	if (type == Type::Text)
 		SetText((const char*) buf, len, alloc);
+	else if (type == Type::JSONB)
+		SetJSONB((const char*) buf, len, alloc);
 	else if (type == Type::Bin)
 		SetBin(buf, len, alloc);
 	else
@@ -83,6 +85,14 @@ Attrib::Attrib(imqs::Guid val, Allocator* alloc) : Type(Type::Null), Flags(0) {
 
 Attrib::Attrib(time::Time val) : Type(Type::Null), Flags(0) {
 	SetDate(val);
+}
+
+Attrib::Attrib(const rapidjson::Value& val, Allocator* alloc) {
+	SetJSONB(val, alloc);
+}
+
+Attrib::Attrib(const nlohmann::json& val, Allocator* alloc) {
+	SetJSONB(val, alloc);
 }
 
 void Attrib::SetNull() {
@@ -135,6 +145,30 @@ void Attrib::SetText(const std::string& str, Allocator* alloc) {
 
 void Attrib::SetTextWithLen(const char* str, size_t len, Allocator* alloc) {
 	PrepareText(len, alloc);
+	if (str) {
+		memcpy(Value.Text.Data, str, len);
+		Value.Text.Data[len] = 0;
+	}
+}
+
+void Attrib::SetJSONB(const rapidjson::Value& val, Allocator* alloc) {
+	SetJSONB(rj::WriteString(val), alloc);
+}
+
+void Attrib::SetJSONB(const nlohmann::json& val, Allocator* alloc) {
+	SetJSONB(val.dump(), alloc);
+}
+
+void Attrib::SetJSONB(const char* str, size_t len, Allocator* alloc) {
+	SetJSONBWithLen(str, len == -1 ? strlen(str) : len, alloc);
+}
+
+void Attrib::SetJSONB(const std::string& str, Allocator* alloc) {
+	SetJSONBWithLen(str.c_str(), str.length(), alloc);
+}
+
+void Attrib::SetJSONBWithLen(const char* str, size_t len, Allocator* alloc) {
+	PrepareJSONB(len, alloc);
 	if (str) {
 		memcpy(Value.Text.Data, str, len);
 		Value.Text.Data[len] = 0;
@@ -236,12 +270,25 @@ void Attrib::Set(const varargs::Arg& arg, Allocator* alloc) {
 	case Type::Float: SetFloat(arg.Flt); break;
 	case Type::Double: SetDouble(arg.Dbl); break;
 	case Type::Guid: SetGuid(*arg.Guid, alloc); break;
+	case Type::JSONB: SetJSONB(arg.Txt, -1, alloc); break;
 	case Type::GeomAny:
 		CopyFrom(*arg.Attrib, alloc);
 		break; // GeomAny is a special value in this context
 	default:
 		IMQS_DIE_MSG("Unimplemented Attrib::Set(vararg)");
 	}
+}
+
+Attrib Attrib::MakeJSONB(const std::string& str, Allocator* alloc) {
+	Attrib v;
+	v.SetJSONB(str, alloc);
+	return v;
+}
+
+Attrib Attrib::MakeJSONB(const char* str, size_t len, Allocator* alloc) {
+	Attrib v;
+	v.SetJSONB(str, len, alloc);
+	return v;
 }
 
 Attrib Attrib::MakePoint(double x, double y, int srid, Allocator* alloc) {
@@ -259,6 +306,13 @@ Attrib Attrib::MakePolylineXY(size_t n, const double* xy, int srid, Allocator* a
 
 void Attrib::SetTempText(const char* str, size_t len) {
 	Type            = dba::Type::Text;
+	Flags           = Attrib::Flags::CustomHeap;
+	Value.Text.Data = const_cast<char*>(str);
+	Value.Text.Size = (int32_t) len;
+}
+
+void Attrib::SetTempJSONB(const char* str, size_t len) {
+	Type            = dba::Type::JSONB;
 	Flags           = Attrib::Flags::CustomHeap;
 	Value.Text.Data = const_cast<char*>(str);
 	Value.Text.Size = (int32_t) len;
@@ -292,6 +346,7 @@ bool Attrib::ToBool() const {
 	case Type::Date: return true;
 	case Type::Time: return true;
 	case Type::Bin: return Value.Bin.Size != 0;
+	case Type::JSONB: return true;
 	default: return true;
 	}
 }
@@ -310,6 +365,7 @@ int16_t Attrib::ToInt16() const {
 	case Type::Date: return (int16_t) UnixSeconds32();
 	case Type::Time: return (int16_t) Value.Time;
 	case Type::Bin: return 0;
+	case Type::JSONB: return 0;
 	default: return 0;
 	}
 }
@@ -328,6 +384,7 @@ int32_t Attrib::ToInt32() const {
 	case Type::Date: return UnixSeconds32();
 	case Type::Time: return Value.Time;
 	case Type::Bin: return 0;
+	case Type::JSONB: return 0;
 	default: return 0;
 	}
 }
@@ -346,6 +403,7 @@ int64_t Attrib::ToInt64() const {
 	case Type::Date: return UnixSeconds64();
 	case Type::Time: return Value.Time;
 	case Type::Bin: return 0;
+	case Type::JSONB: return 0;
 	default: return 0;
 	}
 }
@@ -364,6 +422,7 @@ float Attrib::ToFloat() const {
 	case Type::Date: return (float) UnixSecondsDbl();
 	case Type::Time: return (float) Value.Time;
 	case Type::Bin: return 0.0f;
+	case Type::JSONB: return 0.0f;
 	default: return 0.0f;
 	}
 }
@@ -382,6 +441,7 @@ double Attrib::ToDouble() const {
 	case Type::Date: return (double) UnixSecondsDbl();
 	case Type::Time: return (double) Value.Time;
 	case Type::Bin: return 0;
+	case Type::JSONB: return 0;
 	default: return 0;
 	}
 }
@@ -423,6 +483,7 @@ size_t Attrib::ToText(char* buf, size_t bufLen) const {
 		fixedLen = strlen(fixed) + 1;
 		break;
 	case Type::Text:
+	case Type::JSONB:
 		if (bufLen >= Value.Text.Size + 1 && bufLen != 0) // "bufLen != 0" is here to satisfy clang-analyze [LLVM 3.8]
 			memcpy(buf, Value.Text.Data, Value.Text.Size + 1);
 		return Value.Text.Size + 1;
@@ -521,6 +582,12 @@ void Attrib::ToJson(rapidjson::Value& out, rapidjson::Document::AllocatorType& a
 	case Type::Bin:
 		out.SetString(ToString().c_str(), allocator);
 		break;
+	case Type::JSONB: {
+		rapidjson::Document doc;
+		if (rj::ParseString(Value.Text.Data, doc).OK())
+			out.CopyFrom(doc, allocator);
+		break;
+	}
 	//case Type::Time:
 	//	// TODO
 	case Type::GeomPoint: {
@@ -610,8 +677,11 @@ ohash::hashkey_t Attrib::GetHashCode() const {
 		return (ohash::hashkey_t) i ^ (i >> 32);
 	}
 	case Type::Guid: return Value.Guid->Hash32();
+	case Type::JSONB:
 	case Type::Text:
 	case Type::Bin:
+		// NOTE: This is not the only place where these constraints are expected. There are other places where
+		// we use Value.Text for our JSONB data
 		static_assert(offsetof(Attrib, Value.Bin.Data) == offsetof(Attrib, Value.Text.Data), "Bin and Text don't have same storage");
 		static_assert(offsetof(Attrib, Value.Bin.Size) == offsetof(Attrib, Value.Text.Size), "Bin and Text don't have same storage");
 		static_assert(sizeof(Value.Bin) == sizeof(Value.Text), "Bin and Text don't have same storage");
@@ -813,6 +883,11 @@ Error Attrib::FromJson(const rapidjson::Value& in, dba::Type fieldType, Allocato
 			return Error("Expected JSON string");
 		SetText(in.GetString(), alloc);
 		break;
+	case Type::JSONB: {
+		auto tmp = rj::WriteString(in);
+		SetJSONB(tmp, alloc);
+		break;
+	}
 	case Type::Bool:
 		if (!in.IsBool())
 			return Error("Expected JSON boolean");
@@ -934,12 +1009,12 @@ std::string Attrib::ToString() const {
 }
 
 const char* Attrib::RawString() const {
-	IMQS_ASSERT(Type == dba::Type::Text);
+	IMQS_ASSERT(Type == dba::Type::Text || Type == dba::Type::JSONB);
 	return Value.Text.Data;
 }
 
 size_t Attrib::TextLen() const {
-	IMQS_ASSERT(Type == dba::Type::Text);
+	IMQS_ASSERT(Type == dba::Type::Text || Type == dba::Type::JSONB);
 	return Value.Text.Size;
 }
 
@@ -1065,6 +1140,12 @@ Error Attrib::AssignTo(varargs::OutArg& arg) const {
 			break;
 		}
 		return Error("Unable to convert blob into target type");
+	case Type::JSONB:
+		switch (arg.Type) {
+		case Type::Text: *arg.Txt = Value.Text.Data; break;
+		default: return Error("Unable to convert JSONB into target type");
+		}
+		break;
 	case Type::Guid:
 		switch (arg.Type) {
 		case Type::Guid: *arg.Guid = *Value.Guid; break;
@@ -1108,7 +1189,8 @@ int Attrib::Compare(const Attrib& b) const {
 	case Type::Int64: return math::Compare(Value.Int64, b.Value.Int64);
 	case Type::Float: return math::Compare(Value.Float, b.Value.Float);
 	case Type::Double: return math::Compare(Value.Double, b.Value.Double);
-	case Type::Text: return math::SignOrZero(strcmp(Value.Text.Data, b.Value.Text.Data));
+	case Type::Text:
+	case Type::JSONB: return math::SignOrZero(strcmp(Value.Text.Data, b.Value.Text.Data));
 	case Type::Guid: return math::SignOrZero(memcmp(Value.Guid->Bytes, b.Value.Guid->Bytes, 16));
 	case Type::Date:
 		return math::Compare(Date(), b.Date());
@@ -1164,6 +1246,7 @@ void Attrib::CopyTo(dba::Type dstType, Attrib& dst, Allocator* alloc) const {
 		case Type::Int64: dst.SetInt64(ToInt64()); break;
 		case Type::Float: dst.SetFloat(ToFloat()); break;
 		case Type::Double: dst.SetDouble(ToDouble()); break;
+		case Type::JSONB:
 		case Type::Text: {
 			size_t len = ToText(nullptr, 0);
 			dst.PrepareText(len - 1, alloc);
@@ -1181,6 +1264,8 @@ void Attrib::CopyTo(dba::Type dstType, Attrib& dst, Allocator* alloc) const {
 				WKB::Decode(Value.Bin.Data, Value.Bin.Size, dst, alloc);
 			else if (Type == Type::Text)
 				WKT::Parse(Value.Text.Data, Value.Text.Size, dst, alloc, nullptr, nullptr, false);
+			else if (dstType == Type::GeomAny && IsTypeGeom(Type))
+				dst.CopyFrom(*this, alloc);
 			break;
 		case Type::Time:
 		case Type::Bin:
@@ -1204,6 +1289,7 @@ void* Attrib::DynData() const {
 	case Type::Date:
 	case Type::Time:
 		return nullptr;
+	case Type::JSONB:
 	case Type::Text:
 		return Value.Text.Data;
 	case Type::Guid:
@@ -1519,6 +1605,7 @@ bool Attrib::operator==(const Attrib& b) const {
 	case Type::Int64: return Value.Int64 == b.Value.Int64;
 	case Type::Float: return Value.Float == b.Value.Float;
 	case Type::Double: return Value.Double == b.Value.Double;
+	case Type::JSONB:
 	case Type::Text: return Value.Text.Size == b.Value.Text.Size && memcmp(Value.Text.Data, b.Value.Text.Data, Value.Text.Size) == 0;
 	case Type::Guid: return *Value.Guid == *b.Value.Guid;
 	case Type::Date: return Value.Date.Sec == b.Value.Date.Sec && Value.Date.Nsec == b.Value.Date.Nsec;
@@ -1567,6 +1654,7 @@ void Attrib::CopyFrom(const Attrib& b, Allocator* alloc) {
 	case Type::Int64: Value.Int64 = b.Value.Int64; break;
 	case Type::Float: Value.Float = b.Value.Float; break;
 	case Type::Double: Value.Double = b.Value.Double; break;
+	case Type::JSONB:
 	case Type::Text: SetTextWithLen(b.Value.Text.Data, b.Value.Text.Size, alloc); break;
 	case Type::Guid: SetGuid(*b.Value.Guid, alloc); break;
 	case Type::Date: SetDate(b.Date()); break;
@@ -1621,10 +1709,9 @@ void Attrib::Free() {
 	}
 }
 
-void Attrib::PrepareText(size_t len, Allocator* alloc) {
+void Attrib::PrepareTextOrJSONB(size_t len, Allocator* alloc) {
 	IMQS_ASSERT(len < MaxDataLen - 1);
 	Reset();
-	Type            = Type::Text;
 	Value.Text.Size = (int) len;
 	if (alloc) {
 		Value.Text.Data = (char*) alloc->Alloc(len + 1);
@@ -1632,6 +1719,16 @@ void Attrib::PrepareText(size_t len, Allocator* alloc) {
 	} else {
 		Value.Text.Data = MemPool::AllocText(len + 1);
 	}
+}
+
+void Attrib::PrepareText(size_t len, Allocator* alloc) {
+	PrepareTextOrJSONB(len, alloc);
+	Type = Type::Text;
+}
+
+void Attrib::PrepareJSONB(size_t len, Allocator* alloc) {
+	PrepareTextOrJSONB(len, alloc);
+	Type = Type::JSONB;
 }
 
 void Attrib::CopyVertexIn(void* dst, const void* src, GeomFlags flags) {

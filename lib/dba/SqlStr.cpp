@@ -141,6 +141,9 @@ void SqlDialect::WriteValue(const Attrib& val, SqlStr& s) {
 			free(hbuf);
 		break;
 	}
+	case Type::JSONB:
+		s.Squote(val.Value.Text.Data, val.Value.Text.Size);
+		break;
 	case Type::Date:
 	case Type::Time:
 	case Type::GeomPoint:

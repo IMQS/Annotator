@@ -17,7 +17,7 @@ Error ConnDesc::Parse(const char* s) {
 		auto certs = strings::Split(str.substr(p1 + 2, p2 - p1 - 2), ':');
 		if (certs.size() == 3) {
 			UseSSL(certs[0], certs[1], certs[2]);
-			str = str.substr(0, p1);
+			str.erase(p1, 1 + p2 - p1);
 		}
 	}
 

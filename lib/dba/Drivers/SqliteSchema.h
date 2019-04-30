@@ -24,6 +24,7 @@ public:
 	Error CreateTable(Executor* ex, std::string tableSpace, const schema::Table& table) override;
 	Error CreateIndex(Executor* ex, std::string tableSpace, const std::string& table, const schema::Index& idx) override;
 	Error AddField(Executor* ex, std::string tableSpace, const std::string& table, const schema::Field& field) override;
+	Error AlterField(Executor* ex, std::string tableSpace, const std::string& table, const schema::Field& srcField, const schema::Field& dstField) override;
 	Error DropField(Executor* ex, std::string tableSpace, const std::string& table, const std::string& field) override;
 	int   DefaultFieldWidth(Type type) override;
 };

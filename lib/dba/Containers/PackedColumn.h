@@ -104,6 +104,12 @@ inline void PackedColumn::GetInternal(size_t i, bool deep, Attrib& val, dba::All
 		else
 			val.SetBin(Data + Index[i], GetSize(i), alloc);
 		return;
+	case dba::Type::JSONB:
+		if (deep)
+			val.SetTempJSONB((const char*) (Data + Index[i]), GetSize(i) - 1);
+		else
+			val.SetJSONB((const char*) (Data + Index[i]), GetSize(i) - 1, alloc);
+		return;
 	case dba::Type::GeomAny:
 	case dba::Type::GeomPoint:
 	case dba::Type::GeomMultiPoint:

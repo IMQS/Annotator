@@ -403,7 +403,8 @@ Error ReadWholeFile_Internal(const std::string& filename, void** buf_target, std
 			close(fd);
 			return Error(tsf::fmt("Out of memory allocating %v bytes, to read file (%v). Error = '%v'", flen, filename, e.what()));
 		}
-		buf = &str_target->at(0);
+		if (flen != 0)
+			buf = &str_target->at(0);
 	}
 
 	const size_t CHUNK = 64 * 1024 * 1024;
@@ -566,7 +567,8 @@ IMQS_PAL_API Error FindFiles(const std::string& _dir, std::function<bool(const F
 			continue;
 		if (strcmp(iter->d_name, "..") == 0)
 			continue;
-		item.Name = iter->d_name;
+		item.IsDir = iter->d_type == DT_DIR;
+		item.Name  = iter->d_name;
 		struct stat st;
 		if (stat((fixed + "/" + iter->d_name).c_str(), &st) != 0) {
 			err = ErrorFrom_errno(errno);

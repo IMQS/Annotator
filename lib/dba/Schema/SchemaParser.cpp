@@ -69,6 +69,7 @@ Valid types are:
 * date
 * uuid
 * bin
+* jsonb
 * point
 * multipoint
 * polygon
@@ -200,6 +201,7 @@ static void parse_type(yycontext* yy, const char* t, Field* f) {
 	case "datetime"_crc32: f->Type = Type::Date; break;
 	case "uuid"_crc32: f->Type = Type::Guid; break;
 	case "bin"_crc32: f->Type = Type::Bin; break;
+	case "jsonb"_crc32: f->Type = Type::JSONB; break;
 	case "point"_crc32: f->Type = Type::GeomPoint; break;
 	case "multipoint"_crc32: f->Type = Type::GeomMultiPoint; break;
 	case "polygon"_crc32: f->Type = Type::GeomPolygon; break;

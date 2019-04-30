@@ -157,6 +157,7 @@ public:
 		} Bin;
 		struct
 		{
+			// This is used by JSONB and Text
 			char*   Data; // Null terminated
 			int32_t Size; // Length excluding null terminator
 		} Text;
@@ -191,6 +192,8 @@ public:
 	Attrib(double val);
 	Attrib(imqs::Guid val, Allocator* alloc = nullptr);
 	Attrib(time::Time val);
+	Attrib(const rapidjson::Value& val, Allocator* alloc = nullptr);
+	Attrib(const nlohmann::json& val, Allocator* alloc = nullptr);
 
 	void SetNull();
 	void SetBool(bool val);
@@ -201,6 +204,10 @@ public:
 	void SetDouble(double val);
 	void SetText(const char* str, size_t len = -1, Allocator* alloc = nullptr); // If 'str' is null, then the data is just allocated, and you can fill it in yourself
 	void SetText(const std::string& str, Allocator* alloc = nullptr);
+	void SetJSONB(const char* str, size_t len = -1, Allocator* alloc = nullptr); // If 'str' is null, then the data is just allocated, and you can fill it in yourself
+	void SetJSONB(const std::string& str, Allocator* alloc = nullptr);
+	void SetJSONB(const rapidjson::Value& val, Allocator* alloc = nullptr);
+	void SetJSONB(const nlohmann::json& val, Allocator* alloc = nullptr);
 	void SetGuid(const Guid& val, Allocator* alloc = nullptr);
 	void SetDate(time::Time val);
 	void SetBin(const void* val, size_t len, Allocator* alloc = nullptr);
@@ -213,6 +220,9 @@ public:
 	void SetPolyline(GeomFlags flags, int numVertices, const double* vx, int srid, Allocator* alloc = nullptr);                                 // numVertices can have GeomPartFlag_Closed, to create a closed polyline
 	void Set(const varargs::Arg& arg, Allocator* alloc);
 
+	static Attrib MakeJSONB(const std::string& str, Allocator* alloc = nullptr);
+	static Attrib MakeJSONB(const char* str, size_t len = -1, Allocator* alloc = nullptr);
+
 	static Attrib MakePoint(double x, double y, int srid, Allocator* alloc = nullptr);
 	static Attrib MakePolylineXY(size_t n, const double* xy, int srid, Allocator* alloc = nullptr);
 
@@ -220,6 +230,7 @@ public:
 	// things like text and binary blobs. Obviously, the memory that you use here must outlive the Attrib object.
 	// See also SetTempGeomRaw()
 	void SetTempText(const char* str, size_t len);
+	void SetTempJSONB(const char* str, size_t len);
 	void SetTempBin(const void* bin, size_t len);
 	void SetTempGuid(const Guid* g);
 
@@ -274,6 +285,7 @@ public:
 	bool IsPoly() const;       // Return true if Type is GeomPolygon or GeomPolyline
 	bool IsDate() const;       // Return true if Type is Date
 	bool IsBin() const;        // Return true if Type is Bin
+	bool IsJSONB() const;      // Return true if Type is JSONB
 
 	// Returns +1 if this > b; zero if equal; -1 if this < b.
 	int Compare(const Attrib& b) const;
@@ -334,7 +346,10 @@ private:
 	void            Reset();
 	void            Free();
 	void            SetTextWithLen(const char* str, size_t len, Allocator* alloc = nullptr);
+	void            SetJSONBWithLen(const char* str, size_t len, Allocator* alloc = nullptr);
+	void            PrepareTextOrJSONB(size_t len, Allocator* alloc = nullptr);
 	void            PrepareText(size_t len, Allocator* alloc = nullptr);
+	void            PrepareJSONB(size_t len, Allocator* alloc = nullptr);
 	void            CopyVertexIn(void* dst, const void* src, GeomFlags flags);
 	void            CopyVertexIn(void* dst, const void* src, GeomFlags flags, size_t vertexSize);
 	void            CopyVerticesIn(int numVerts, const void* vx, GeomFlags flags);
@@ -426,6 +441,10 @@ inline bool Attrib::IsDate() const {
 
 inline bool Attrib::IsBin() const {
 	return Type == Type::Bin;
+}
+
+inline bool Attrib::IsJSONB() const {
+	return Type == Type::JSONB;
 }
 
 } // namespace dba

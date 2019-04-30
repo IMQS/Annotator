@@ -224,6 +224,9 @@ Error HANASchemaWriter::CreateIndex(Executor* ex, std::string tableSpace, const 
 Error HANASchemaWriter::AddField(Executor* ex, std::string tableSpace, const std::string& table, const schema::Field& field) {
 	return Error("HANASchemaWriter::AddField not implemented");
 }
+Error HANASchemaWriter::AlterField(Executor* ex, std::string tableSpace, const std::string& table, const schema::Field& srcField, const schema::Field& dstField) {
+	return Error("HANASchemaWriter::AlterField not implemented");
+}
 
 Error HANASchemaWriter::DropField(Executor* ex, std::string tableSpace, const std::string& table, const std::string& field) {
 	return Error("HANASchemaWriter::DropField not implemented");
