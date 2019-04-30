@@ -531,6 +531,10 @@ deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root ..
 deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libmkl_intel_lp64.so", linuxFilter)
 deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libmkl_gnu_thread.so", linuxFilter)
 deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libmkl_core.so", linuxFilter)
+deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libmkl_vml_avx2.so", linuxFilter)
+deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libmkl_vml_def.so", linuxFilter)
+deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libmkl_avx2.so", linuxFilter)
+deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libmkl_def.so", linuxFilter)
 deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libnccl.so.2", linuxFilter)
 
 local torch = ExternalLibrary {

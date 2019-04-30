@@ -531,8 +531,12 @@ void Server::Report(phttp::Response& w, phttp::RequestPtr r) {
 // It may be imbalanced variables, i.e. their magnitudes are so high that they destroy the gradient signal
 // for the other variables.
 
+const bool  Use3x3         = false;
+const float AssumedCircleZ = 0.0f;
+const auto  TorchDevice    = torch::kCPU;
+
 at::Tensor MatTranslate(at::Tensor m, at::Tensor trans) {
-	auto tm  = torch::eye(4).to(torch::kCUDA);
+	auto tm  = torch::eye(4).to(TorchDevice);
 	tm[0][3] = trans[0];
 	tm[1][3] = trans[1];
 	tm[2][3] = trans[2];
@@ -550,13 +554,13 @@ at::Tensor MatLookAt(at::Tensor eyeV, at::Tensor centerV, at::Tensor upV) {
 	}
 
 	// X vector = Up cross Z
-	auto x = torch::zeros({3}).to(torch::kCUDA);
+	auto x = torch::zeros({3}).to(TorchDevice);
 	x[0]   = upV[1] * z[2] - upV[2] * z[1];
 	x[1]   = -upV[0] * z[2] + upV[2] * z[0];
 	x[2]   = upV[0] * z[1] - upV[1] * z[0];
 
 	// Y = Z cross X
-	auto y = torch::zeros({3}).to(torch::kCUDA);
+	auto y = torch::zeros({3}).to(TorchDevice);
 	y[0]   = z[1] * x[2] - z[2] * x[1];
 	y[1]   = -z[0] * x[2] + z[2] * x[0];
 	y[2]   = z[0] * x[1] - z[1] * x[0];
@@ -578,7 +582,7 @@ at::Tensor MatLookAt(at::Tensor eyeV, at::Tensor centerV, at::Tensor upV) {
 		y = y.clone() / mag;
 	}
 
-	auto m = torch::zeros({4, 4}).to(torch::kCUDA);
+	auto m = torch::zeros({4, 4}).to(TorchDevice);
 	//auto ma = m.accessor<float, 2>();
 	//cout << "m:\n" << m << endl;
 	//cout << "slice part level 1:\n" << m.slice(0, 0, 1) << endl;
@@ -607,7 +611,7 @@ at::Tensor MatFrustum(at::Tensor left, at::Tensor right, at::Tensor bottom, at::
 	auto D = -1 * (2 * zFar * zNear) / (zFar - zNear);
 	auto E = (2 * zNear) / (right - left);
 	auto F = (2 * zNear) / (top - bottom);
-	auto m = torch::zeros({4, 4}).to(torch::kCUDA);
+	auto m = torch::zeros({4, 4}).to(TorchDevice);
 	//cout << "A:\n" << A << endl;
 	//cout << "m[0]:\n" << m[0] << endl;
 	//cout << "m[0][0]:\n" << m[0][0] << endl;
@@ -635,9 +639,6 @@ at::Tensor MatPerspective(at::Tensor fovDegrees, at::Tensor aspect, at::Tensor z
 	auto right  = top * aspect;
 	return MatFrustum(left, right, bottom, top, zNear, zFar);
 }
-
-const bool  Use3x3         = false;
-const float AssumedCircleZ = 0.0f;
 
 struct World2ViewNet : torch::nn::Module {
 	torch::Tensor EyeV;
@@ -681,7 +682,7 @@ struct World2ViewNet : torch::nn::Module {
 	//torch::Tensor forward(int iSample, torch::Tensor input) {
 	torch::Tensor forward(int iSample) {
 		if (Use3x3) {
-			auto input = torch::empty({3}).to(torch::kCUDA);
+			auto input = torch::empty({3}).to(TorchDevice);
 			input[0]   = at::cos(Theta[iSample]);
 			input[1]   = at::sin(Theta[iSample]);
 			input[2]   = 1.0f;
@@ -698,8 +699,8 @@ struct World2ViewNet : torch::nn::Module {
 		if (Camera) {
 			auto modelView  = MatLookAt(EyeV, LookAtV, UpV);
 			auto projection = MatPerspective(CameraFOV, CameraAspect, ZNear, ZFar);
-			modelView       = modelView.to(torch::kCUDA);
-			projection      = projection.to(torch::kCUDA);
+			modelView       = modelView.to(TorchDevice);
+			projection      = projection.to(TorchDevice);
 			auto mvProj     = at::matmul(modelView, projection);
 			//auto mvProj = at::matmul(projection, modelView);
 			//auto mvProj = modelView;
@@ -715,8 +716,8 @@ struct World2ViewNet : torch::nn::Module {
 		//auto p = M * input;
 		//cout << p << endl;
 		//auto input = torch::tensor({at::cos(Theta[iSample]), at::sin(Theta[iSample]), 0.0f, 1.0f});
-		//auto input = torch::empty({4,1}).to(torch::kCUDA);
-		auto input = torch::empty({4}).to(torch::kCUDA);
+		//auto input = torch::empty({4,1}).to(TorchDevice);
+		auto input = torch::empty({4}).to(TorchDevice);
 		input[0]   = at::cos(Theta[iSample]);
 		input[1]   = at::sin(Theta[iSample]);
 		input[2]   = AssumedCircleZ;
@@ -757,7 +758,7 @@ void Server::Solve(phttp::Response& w, phttp::RequestPtr r) {
 	}
 
 	auto model = World2ViewNet(circlePts.size());
-	model.to(torch::kCUDA);
+	model.to(TorchDevice);
 	auto bestModelM4    = torch::zeros({1});
 	auto bestModelM3    = torch::zeros({1});
 	auto bestModelTheta = torch::zeros({1});
@@ -786,7 +787,7 @@ void Server::Solve(phttp::Response& w, phttp::RequestPtr r) {
 			model.Theta.set_requires_grad(false);
 			//model.Theta.set_requires_grad(cycle == 1);
 			//auto loss = torch::Scalar(0.0f);
-			auto loss = torch::zeros({1}).to(torch::kCUDA);
+			auto loss = torch::zeros({1}).to(TorchDevice);
 			for (size_t i = 0; i < circlePts.size(); i++) {
 				auto viewPt = circlePts[i];
 				//float th = circlePtAngles[i];
@@ -794,7 +795,7 @@ void Server::Solve(phttp::Response& w, phttp::RequestPtr r) {
 				//float y = sin(th);
 				//auto inp = torch::tensor({pt.x, pt.y, 0.f, 1.f});
 				//auto inp = torch::tensor({x, y, 0.f, 1.f});
-				//inp                           = inp.to(torch::kCUDA);
+				//inp                           = inp.to(TorchDevice);
 				auto out    = model.forward((int) i);
 				auto dx     = out[0] - viewPt.x;
 				auto dy     = out[1] - viewPt.y;

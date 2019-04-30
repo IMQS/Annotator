@@ -59,9 +59,16 @@ RUN . ~/conda/bin/activate \
  && python setup.py install
 
 FROM ubuntu:18.04
-COPY --from=0 /root/conda/lib/libmkl_intel_lp64.so /usr/local/libtorch/lib/
-COPY --from=0 /root/conda/lib/libmkl_gnu_thread.so /usr/local/libtorch/lib/
-COPY --from=0 /root/conda/lib/libmkl_core.so /usr/local/libtorch/lib/
+COPY --from=0 \
+	/root/conda/lib/libmkl_intel_lp64.so \
+	/root/conda/lib/libmkl_gnu_thread.so \
+	/root/conda/lib/libmkl_core.so \
+	/root/conda/lib/libmkl_vml_avx2.so \
+	/root/conda/lib/libmkl_vml_def.so \
+	/root/conda/lib/libmkl_avx2.so \
+	/root/conda/lib/libmkl_def.so \
+	/usr/local/libtorch/lib/
+
 COPY --from=0 /root/pytorch/build/lib/ /usr/local/libtorch/lib/
 COPY --from=0 /root/pytorch/build/lib.linux-x86_64-3.7/torch/include/ /usr/local/libtorch/include/
 RUN echo "cache breaker"
