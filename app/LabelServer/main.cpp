@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "Server.h"
+#include "LabelDB.h"
 
 using namespace std;
 
@@ -9,6 +10,12 @@ int main(int argc, const char** argv) {
 	dba::Initialize();
 	uberlog::Logger log;
 	log.OpenStdOut();
+
+	//{
+	//	auto err = imqs::label::LabelDB::MergeOnceOff();
+	//	tsf::print("Result: %v\n", err.Message());
+	//	return 0;
+	//}
 
 	argparse::Args args("LabelServer <photo dir> <dimensions>");
 	args.AddValue("e", "export", "Export labels to a hierarchy of folders ready to train a neural network");

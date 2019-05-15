@@ -11,6 +11,8 @@ public:
 	~LabelDB();
 	void  Close();
 	Error Open(uberlog::Logger* log, std::string rootDir);
+
+	static Error MergeOnceOff();
 };
 
 } // namespace label

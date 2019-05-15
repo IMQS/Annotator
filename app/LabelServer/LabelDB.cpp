@@ -50,5 +50,76 @@ Error LabelDB::Open(uberlog::Logger* log, std::string rootDir) {
 	return dbutil::CreateAndMigrateDB(d, Migrations, log, dbutil::CreateFlags::None, DB);
 }
 
+// This was once-off code for merging two databases.
+// I tried, but couldn't figure out how to do it in the sqlite app.
+// This was used on 2019-05-15. The plan going forward is to make the labeller work
+// over the web, so that we never have to do this again.
+Error LabelDB::MergeOnceOff() {
+	dba::ConnDesc d1;
+	dba::Conn*    mergeDB;
+	dba::Conn*    srcDB;
+	auto          err = dba::Glob.Open("sqlite3:_:0:/home/ben/tmp/ai-sync/merged.sqlite:user:password", mergeDB);
+	if (!err.OK())
+		return err;
+	err = dba::Glob.Open("sqlite3:_:0:/home/ben/tmp/ai-sync/joburg.sqlite:user:password", srcDB);
+	if (!err.OK())
+		return err;
+	dba::ConnAutoCloser closer1(mergeDB);
+	dba::ConnAutoCloser closer2(srcDB);
+
+	struct Label {
+		string ImagePath;
+		string Value;
+		string ModifiedAt;
+	};
+
+	auto          rows = srcDB->Query("SELECT image_path, value, label.modified_at FROM sample INNER JOIN label ON sample.id = label.sample_id WHERE dimension = 'tar_vci' AND label.author = 'Adhnaan'");
+	vector<Label> labels;
+	for (auto row : rows) {
+		Label lab;
+		err = row.Scan(lab.ImagePath, lab.Value, lab.ModifiedAt);
+		if (!err.OK())
+			return err;
+		labels.push_back(move(lab));
+	}
+	if (!rows.OK())
+		return rows.Err();
+
+	dba::Tx* tx;
+	err = mergeDB->Begin(tx);
+	if (!rows.OK())
+		return rows.Err();
+	dba::TxAutoCloser autoCloser(tx);
+
+	size_t nSamplesCreated = 0;
+
+	for (auto lab : labels) {
+		int64_t id;
+		err = dba::CrudOps::Query(tx, "SELECT id FROM sample WHERE image_path = $1 AND region_id = 0", {lab.ImagePath}, id);
+		if (err == ErrEOF) {
+			// create sample
+			nSamplesCreated++;
+			err = tx->Exec("INSERT INTO sample (image_path, region_id, author) VALUES ($1, 0, 'Adhnaan')", {lab.ImagePath});
+			if (!err.OK())
+				return err;
+			err = dba::CrudOps::Query(tx, "SELECT id FROM sample WHERE image_path = $1 AND region_id = 0", {lab.ImagePath}, id);
+			if (!err.OK())
+				return err;
+		} else if (!err.OK()) {
+			tsf::print("WHAT %v, %v\n", err.Message(), lab.ImagePath);
+			return err;
+		}
+
+		err = tx->Exec("INSERT OR REPLACE INTO label (sample_id, dimension, value, author, modified_at) VALUES (?, ?, ?, ?, ?)",
+		               {id, "tar_vci", lab.Value, "Adhnaan", lab.ModifiedAt});
+		if (!err.OK())
+			return err;
+	}
+
+	tsf::print("Created %v samples\n", nSamplesCreated);
+
+	return tx->Commit();
+}
+
 } // namespace label
 } // namespace imqs
