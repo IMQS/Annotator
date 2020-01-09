@@ -67,9 +67,17 @@
                 "title": "None (tar)",
                 "icon": "/tar-defects/none-tar.jpg"
             },
+            "crack": {
+                "title": "Cracks (other)",
+                "icon": "/tar-defects/cracks.jpg",
+                "hasIntensity": true
+            },
             "croc-crack": {
                 "title": "Crocodile Cracks",
                 "icon": "/tar-defects/crocodile-cracks.jpg",
+                "implies": [
+                    "crack"
+                ],
                 "hasIntensity": true
             },
             "pothole": {
@@ -80,12 +88,30 @@
             "long-crack": {
                 "title": "Longitudinal Crack",
                 "icon": "/tar-defects/longitudinal-crack.jpg",
+                "implies": [
+                    "crack"
+                ],
                 "hasIntensity": true
             },
             "trans-crack": {
                 "title": "Transverse Crack",
                 "icon": "/tar-defects/transverse-crack.jpg",
+                "implies": [
+                    "crack"
+                ],
                 "hasIntensity": true
+            },
+            "surf-crack": {
+                "title": "Surface Crack",
+                "icon": "/tar-defects/transverse-crack.jpg",
+                "implies": [
+                    "crack"
+                ],
+                "hasIntensity": true
+            },
+            "manhole": {
+                "title": "Manhole Cover",
+                "icon": "/tar-defects/manhole.jpg"
             }
         }
     },

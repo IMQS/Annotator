@@ -231,8 +231,8 @@ export class Draw {
 				let title = category != null ? category.title : 'UNRECOGNIZED';
 				let categoryBox = this.drawTextWithHalo(cx, title, mx, my);
 				this.popups.push(new Popup(categoryBox, region, this.dim.id, false));
-				if (category.hasIntensity) {
-					let intensity = lab.intensity != undefined ? lab.intensity : '0';
+				if (category && category.hasIntensity) {
+					let intensity = lab.intensity !== undefined ? lab.intensity : 0;
 					let intensityBox = this.drawTextWithHalo(cx, intensity.toFixed(0), categoryBox.x2 + 10, my);
 					this.popups.push(new Popup(intensityBox, region, this.dim.id, true));
 				}
