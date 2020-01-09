@@ -58,6 +58,37 @@
             5
         ]
     },
+    "tar_defects": {
+        "explain": "Tar defects",
+        "type": "polygon",
+        "semanticSegmentation": true,
+        "values": {
+            "none": {
+                "title": "None (tar)",
+                "icon": "/tar-defects/none-tar.jpg"
+            },
+            "croc-crack": {
+                "title": "Crocodile Cracks",
+                "icon": "/tar-defects/crocodile-cracks.jpg",
+                "hasIntensity": true
+            },
+            "pothole": {
+                "title": "Pothole",
+                "icon": "/tar-defects/pothole.jpg",
+                "hasIntensity": true
+            },
+            "long-crack": {
+                "title": "Longitudinal Crack",
+                "icon": "/tar-defects/longitudinal-crack.jpg",
+                "hasIntensity": true
+            },
+            "trans-crack": {
+                "title": "Transverse Crack",
+                "icon": "/tar-defects/transverse-crack.jpg",
+                "hasIntensity": true
+            }
+        }
+    },
     "traffic_signs": {
         "explain": "Traffic Signs",
         "type": "polygon",

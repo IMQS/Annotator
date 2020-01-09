@@ -157,6 +157,8 @@ void Server::ListenAndRun(int port) {
 				err = ApiSetLabel(w, r, tx);
 			} else if (r->Path == "/api/db/get_labels") {
 				err = ApiGetLabels(w, r, tx);
+			} else if (r->Path == "/api/db/get_folder_summary") {
+				err = ApiGetFolderSummary(w, r, tx);
 			} else {
 				w.Status = 404;
 				return;
@@ -213,7 +215,7 @@ Error Server::Export(std::string exportDir) {
 	if (!err.OK())
 		return err;
 	dba::TxAutoCloser txCloser(tx);
-	auto              rows = tx->Query("SELECT sample.image_path, label.dimension, label.value FROM sample INNER JOIN label ON sample.id = label.sample_id");
+	auto              rows = tx->Query("SELECT sample.image_path, label.dimension, label.category FROM sample INNER JOIN label ON sample.id = label.sample_id");
 	size_t            nth  = 0;
 	for (auto row : rows) {
 		nth++;
@@ -314,12 +316,13 @@ Error Server::LoadDimensionsFile(std::string dimensionsFile) {
 //     Informix and Microsoft SQL Server follow the other interpretation of the standard.
 // Return: The ID of the region.
 Error Server::ApiSetLabel(phttp::Response& w, phttp::RequestPtr r, dba::Tx* tx) {
-	auto image    = r->QueryVal("image");
-	auto regionID = r->QueryInt64("region_id");
-	auto region   = r->QueryVal("region");
-	auto dim      = r->QueryVal("dimension");
-	auto val      = r->QueryVal("value");
-	auto author   = r->QueryVal("author");
+	auto image     = r->QueryVal("image");
+	auto regionID  = r->QueryInt64("region_id");
+	auto region    = r->QueryVal("region");
+	auto dim       = r->QueryVal("dimension");
+	auto category  = r->QueryVal("category");
+	auto intensity = r->QueryDbl("intensity");
+	auto author    = r->QueryVal("author");
 	if (image == "")
 		return Error("image not be empty");
 
@@ -348,7 +351,7 @@ Error Server::ApiSetLabel(phttp::Response& w, phttp::RequestPtr r, dba::Tx* tx) 
 		IMQS_DIE(); // this should be unreachable
 
 	int64_t sampleID        = 0;
-	bool    deleteThisLabel = val == ""; // delete this label (but not necessarily the region)
+	bool    deleteThisLabel = category == ""; // delete this label (but not necessarily the region)
 
 	if (regionMode == RegionMode::WholeImage) {
 		auto err = tx->Exec("INSERT OR IGNORE INTO sample (image_path, region_id) VALUES (?, 0)", {image});
@@ -387,8 +390,8 @@ Error Server::ApiSetLabel(phttp::Response& w, phttp::RequestPtr r, dba::Tx* tx) 
 		if (deleteThisLabel)
 			err = tx->Exec("DELETE FROM label WHERE sample_id = ? AND dimension = ?", {sampleID, dim});
 		else
-			err = tx->Exec("INSERT OR REPLACE INTO label (sample_id, dimension, value, author, modified_at) VALUES (?, ?, ?, ?, ?)",
-			               {sampleID, dim, val, author, time::Now()});
+			err = tx->Exec("INSERT OR REPLACE INTO label (sample_id, dimension, category, intensity, author, modified_at) VALUES (?, ?, ?, ?, ?, ?)",
+			               {sampleID, dim, category, intensity, author, time::Now()});
 		if (!err.OK())
 			return err;
 	}
@@ -428,13 +431,14 @@ Error Server::ApiGetLabels(phttp::Response& w, phttp::RequestPtr r, dba::Tx* tx)
 	}
 
 	nlohmann::json resp;
-	rows           = tx->Query(tsf::fmt("SELECT sample_id, dimension, value FROM label WHERE sample_id IN %v", idList).c_str());
+	rows           = tx->Query(tsf::fmt("SELECT sample_id, dimension, category, intensity FROM label WHERE sample_id IN %v", idList).c_str());
 	auto& jRegions = resp["regions"];
 	for (auto row : rows) {
 		int64_t sampleID = 0;
 		string  dim;
-		string  val;
-		auto    err = row.Scan(sampleID, dim, val);
+		string  category;
+		double  intensity = 0;
+		auto    err       = row.Scan(sampleID, dim, category, intensity);
 		if (!err.OK())
 			return err;
 		auto regionID64 = sampleIDToRegionID.get(sampleID);
@@ -443,11 +447,56 @@ Error Server::ApiGetLabels(phttp::Response& w, phttp::RequestPtr r, dba::Tx* tx)
 		if (jRegions.find(regionID) == jRegions.end() && region != "") {
 			jRegions[regionID]["region"] = region;
 		}
-		jRegions[regionID]["dims"][dim] = val;
+		nlohmann::json jVal;
+		jVal["category"]                = category;
+		jVal["intensity"]               = intensity;
+		jRegions[regionID]["dims"][dim] = move(jVal);
 	}
 	if (!rows.OK())
 		return rows.Err();
 	SendJson(w, resp);
+	return Error();
+}
+
+// Return a list of all images that contain at least one label matching the given criteria
+Error Server::ApiGetFolderSummary(phttp::Response& w, phttp::RequestPtr r, dba::Tx* tx) {
+	string prefix    = r->QueryVal("prefix");
+	string dimension = r->QueryVal("dimension");
+	//if (r->QueryVal("prefix") == "") {
+	//	w.SetStatusAndBody(400, "You must set the 'prefix' query parameter");
+	//	return Error();
+	//}
+	dba::AttribList whereParams;
+	string          where = "";
+	if (prefix != "") {
+		where = "image_path LIKE ?";
+		whereParams.AddV(prefix + "%");
+	}
+	if (dimension != "") {
+		if (where != "")
+			where += " AND ";
+		where += "dimension = ?";
+		whereParams.AddV(dimension);
+	}
+
+	vector<string> images;
+	dba::Rows      rows;
+	if (where == "")
+		rows = tx->Query("SELECT image_path FROM sample");
+	else
+		rows = tx->Query(("SELECT image_path FROM sample INNER JOIN label ON sample.id = label.sample_id WHERE " + where).c_str(), whereParams.Size(), whereParams.ValuesPtr());
+
+	for (auto row : rows) {
+		string image_path;
+		auto   err = row.Scan(image_path);
+		if (!err.OK())
+			return err;
+		images.push_back(image_path);
+	}
+	if (!rows.OK())
+		return rows.Err();
+
+	SendJson(w, images);
 	return Error();
 }
 
@@ -495,14 +544,14 @@ void Server::ServeStatic(phttp::Response& w, phttp::RequestPtr r) {
 }
 
 void Server::Report(phttp::Response& w, phttp::RequestPtr r) {
-	auto           rows = DB.DB->Query("SELECT count(*),min(dimension),min(value) FROM label GROUP BY dimension,value");
+	auto           rows = DB.DB->Query("SELECT count(*),min(dimension),min(category) FROM label GROUP BY dimension,category");
 	nlohmann::json jDoc;
 	for (auto row : rows) {
 		int64_t count = 0;
 		string  dim;
-		string  val;
-		row.Scan(count, dim, val);
-		jDoc["dimensions"][dim][val]["count"] = count;
+		string  category;
+		row.Scan(count, dim, category);
+		jDoc["dimensions"][dim][category]["count"] = count;
 	}
 	rows = DB.DB->Query("SELECT count(*),min(author) FROM label GROUP BY author ORDER BY count(*) DESC");
 	for (auto row : rows) {

@@ -1,9 +1,20 @@
 <template>
-	<div ref='frame' class='scrollerFrame' @pointerdown='pointerdown' @pointermove='pointermove' @pointerup='pointerup'>
-		<div ref='timeline' class='timeline'>
-			<div class='dotFrame' :style='{left: dotCssLeft}' >
-				<div class='dot'>
-					<div class='dotdot' />
+	<div
+		ref="frame"
+		class="scrollerFrame"
+		@pointerdown="pointerdown"
+		@pointermove="pointermove"
+		@pointerup="pointerup"
+	>
+		<div ref="timeline" class="timeline">
+			<canvas
+				class="tickCanvas"
+				ref="tickCanvas"
+				:style="{visibility: ticks.length === 0 ? 'hidden' : 'visible'}"
+			/>
+			<div class="dotFrame" :style="{left: dotCssLeft}">
+				<div class="dot">
+					<div class="dotdot" />
 				</div>
 			</div>
 		</div>
@@ -16,13 +27,57 @@ import { Prop, Watch, Component, Vue } from 'vue-property-decorator';
 @Component({})
 export default class ImageScroller extends Vue {
 	@Prop({ default: 0 }) pos!: number;
+	@Prop({ default: () => [] }) ticks!: []; // Array of 'pos' values where there is interesting data (ie some existing labels)
 
-	dotWidth: number = 55; // must equal css style size
 	isDragging: boolean = false;
 	dragOffset: number = 0;
+	tickValues: number[] = [];
 
 	get dotCssLeft(): string {
 		return (this.pos * 100) + '%';
+	}
+
+	@Watch('ticks') onTicksChanged() {
+		// Rebuild canvas
+		let width = 2000;
+		let count = [];
+		for (let i = 0; i < width; i++)
+			count.push(0);
+		for (let p of this.ticks) {
+			let slot = Math.floor(p * width);
+			if (slot < 0)
+				slot = 0;
+			if (slot >= width)
+				slot = width - 1;
+			count[slot]++;
+		}
+
+		let addPixel = (rgba: Uint8ClampedArray, x: number, red: number, alpha: number) => {
+			if (x < 0 || x >= rgba.length / 4)
+				return;
+			let p = x * 4;
+			rgba[p + 0] = Math.min(255, rgba[p] + red);
+			rgba[p + 1] = Math.min(255, rgba[p] + red);
+			//rgba[p + 2] = Math.min(255, rgba[p] + red);
+			rgba[p + 3] = Math.min(255, rgba[p + 3] + alpha);
+		};
+
+		let can = this.$refs.tickCanvas as HTMLCanvasElement;
+		let height = 1;
+		can.width = width;
+		can.height = height;
+		let cx = can.getContext('2d')!;
+		let imgData = cx.getImageData(0, 0, width, height);
+		for (let i = 0; i < width; i++) {
+			if (count[i] !== 0) {
+				let mag = count[i];
+				// spread out the signal over 3 samples, to increase readability
+				addPixel(imgData.data, i - 1, mag * 255, mag * 100);
+				addPixel(imgData.data, i, mag * 255, mag * 200);
+				addPixel(imgData.data, i + 1, mag * 255, mag * 100);
+			}
+		}
+		cx.putImageData(imgData, 0, 0);
 	}
 
 	emitChange(newPos: number) {
@@ -57,6 +112,10 @@ export default class ImageScroller extends Vue {
 		p = Math.max(0, Math.min(p, 1));
 		return p;
 	}
+
+	mounted() {
+		this.onTicksChanged();
+	}
 }
 </script>
 
@@ -65,7 +124,7 @@ export default class ImageScroller extends Vue {
 	width: 100%;
 	// margin: 0 50px;
 	box-sizing: border-box;
-	height: 50px;
+	height: 28px;
 	//border-radius: 5px;
 	//border: solid 1px #000;
 	//background-color: #e1e;
@@ -87,11 +146,19 @@ export default class ImageScroller extends Vue {
 	background-color: rgba(200, 200, 200, 0.25);
 	position: relative;
 }
+.tickCanvas {
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 5px;
+	background-color: rgba(82, 175, 155, 0.5);
+}
 .dotFrame {
-	width: 55px; // must equal dotWidth
-	height: 55px;
-	margin-left: -27px;
-	top: -25px;
+	width: 35px;
+	height: 35px;
+	margin-left: -18px;
+	top: -15px;
 	position: absolute;
 	cursor: pointer;
 	display: flex;
@@ -103,7 +170,7 @@ export default class ImageScroller extends Vue {
 	width: 13px;
 	height: 13px;
 	border-radius: 100px;
-	background-color: rgba(255, 255, 255, 0.6);
+	background-color: rgba(255, 200, 90, 0.6);
 	border: solid 1px rgba(0, 0, 0, 0.3);
 	display: flex;
 	justify-content: center;

@@ -1,2 +1,4 @@
 *.tm filter=lfs diff=lfs merge=lfs -text
 *.so filter=lfs diff=lfs merge=lfs -text
+app/photo-label/public/tar-defects/ filter=lfs diff=lfs merge=lfs -text
+app/photo-label/public/traffic-signs/ filter=lfs diff=lfs merge=lfs -text

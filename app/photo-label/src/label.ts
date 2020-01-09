@@ -1,4 +1,4 @@
-import { Vec2, Polygon } from './geom';
+import { Polygon } from './geom';
 
 export enum DimensionType {
 	WholeImage,
@@ -11,11 +11,13 @@ export class DimensionValue {
 	public label: string = ''; // This is the label that goes into the DB
 	public icon: string = ''; // An image to help the user understand what this is
 	public title: string = ''; // A title to help the user understand what this is
+	public hasIntensity: boolean = false; // True if the user can also assign an intensity quantity to this category
 
-	constructor(label: string, icon: string, title: string) {
+	constructor(label: string, icon: string, title: string, hasIntensity: boolean) {
 		this.label = label;
 		this.icon = icon;
 		this.title = title;
+		this.hasIntensity = hasIntensity;
 	}
 }
 
@@ -24,6 +26,7 @@ export class Dimension {
 	public values: DimensionValue[] = [];
 	public explain: string = '';
 	public type: DimensionType = DimensionType.WholeImage;
+	public isSemanticSegmentation: boolean = false;
 	public shortcutKeyToValue: { [key: string]: string } = {}; // map from key to value
 	public valueToShortcutKey: { [value: string]: string } = {}; // map from value to key
 
@@ -131,10 +134,12 @@ export class DimensionSet {
 			else
 				throw new Error(`Unrecognized dimension type ${j[k].type}`);
 
+			dim.isSemanticSegmentation = j[k].semanticSegmentation === true;
+
 			if (j[k].values instanceof Array) {
 				// values: [1,2,3,4,5]
 				for (let label of j[k].values) {
-					dim.values.push(new DimensionValue(label, '', label));
+					dim.values.push(new DimensionValue(label, '', label, false));
 				}
 			} else {
 				// values: {
@@ -143,7 +148,7 @@ export class DimensionSet {
 				// }
 				for (let label in j[k].values) {
 					let val = j[k].values[label];
-					dim.values.push(new DimensionValue(label, val.icon, val.title));
+					dim.values.push(new DimensionValue(label, val.icon, val.title, val.hasIntensity === true));
 				}
 			}
 
@@ -223,8 +228,12 @@ export class ImageLabelSet {
 			let region = new LabelRegion();
 			region.regionID = parseInt(regionID, 10);
 			let jDims = jRegions[regionID].dims;
-			if (jDims !== undefined)
-				region.labels = jDims;
+			if (jDims !== undefined) {
+				for (let dim in jDims) {
+					let val = jDims[dim];
+					region.labels[dim] = new LabelValue(val.category, val.intensity);
+				}
+			}
 			let jPoly = jRegions[regionID].region;
 			if (jPoly !== undefined) {
 				region.polygon = Polygon.fromJSON(jPoly as string);
@@ -234,6 +243,7 @@ export class ImageLabelSet {
 			ls.regions.push(region);
 		}
 		if (ls.regionByID(0) === null) {
+			// Add the special 'whole image' region
 			let whole = new LabelRegion();
 			whole.regionID = 0;
 			ls.regions.push(whole);
@@ -266,6 +276,24 @@ export class ImageLabelSet {
 	}
 }
 
+// A label value is the thing that the user has chosen for this region+dimension combo.
+// A label value can be just the category (such as stop sign, yield sign, etc), or it
+// can also include an intensity value (such as crocodile crack, intensity 3).
+// For dimensions that only have a single value, you MUST use category. So even if the
+// category is more of a real number than a discreet thing, if there is no associated
+// intensity value, you must use category.
+// The reason for this is that the server interprets the assignment of an empty category
+// as a request to delete that label.
+export class LabelValue {
+	category: string; // Category is mandatory (eg stop sign, no left turn, etc)
+	intensity?: number; // Intensity is optional (eg 1..5 for common tar road defects)
+
+	constructor(category: string, intensity?: number) {
+		this.category = category;
+		this.intensity = intensity;
+	}
+}
+
 // A label region is a region of an image (or an entire image), which has
 // one or more labels assigned to it.
 // If polygon is null, then this label refers to the entire image
@@ -274,7 +302,7 @@ export class LabelRegion {
 	// A region of -1 means we haven't yet saved this region on the server.
 	regionID: number = -1;
 	polygon: Polygon | null = null; // Region 0 has a null polygon
-	labels: { [key: string]: string } = {}; // keys are dimensions (eg traffic_sign, or tar_vci), and value is the label assigned (eg 'MaxSpeed60', or 3, respectively)
+	labels: { [key: string]: LabelValue } = {}; // keys are dimensions (eg traffic_sign, or tar_vci), and value is the label assigned (eg 'MaxSpeed60', or 3, respectively)
 }
 
 // A label that has been modified.
@@ -322,10 +350,13 @@ export class DirtyRegionQueue {
 	}
 
 	postToServer(d: DirtyRegion) {
+		let labelVal = d.region.labels[d.dimid];
 		let apiURL = '/api/db/set_label?image=' + encodeURIComponent(d.imgPath) +
 			'&author=' + encodeURIComponent(localStorage.getItem('author') || '') +
 			'&dimension=' + encodeURIComponent(d.dimid) +
-			'&value=' + encodeURIComponent(d.region.labels[d.dimid]);
+			'&category=' + encodeURIComponent(labelVal.category);
+		if (labelVal.intensity !== undefined)
+			apiURL += '&intensity=' + encodeURIComponent(labelVal.intensity.toPrecision(3));
 
 		// regionID is negative until we post the region to the server
 		if (d.region.regionID > 0)

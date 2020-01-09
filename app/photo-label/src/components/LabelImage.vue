@@ -1,10 +1,16 @@
 <template>
-	<div class='outerLabelImage' @click='$emit("click")' :style='outerStyle' @mouseenter='isHot = true' @mouseleave='isHot = false'>
-		<div class='iconDiv'>
-			<img class='icon' :src='iconURL' />
-			<img class='bigIcon' :style='bigIconStyle' :src='iconURL' />
+	<div
+		class="outerLabelImage"
+		@click="$emit('click')"
+		:style="outerStyle"
+		@mouseenter="isHot = true"
+		@mouseleave="isHot = false"
+	>
+		<div class="iconDiv">
+			<img class="icon" :src="iconURL" />
+			<img class="bigIcon" :style="bigIconStyle" :src="iconURL" />
 		</div>
-		<div class='title'>{{title}}</div>
+		<div class="title">{{title}}</div>
 	</div>
 </template>
 
@@ -65,7 +71,7 @@ export default class LabelImage extends Vue {
 }
 .bigIcon {
 	//opacity: 0.5;
-	max-width: 60px;
+	max-width: 80px;
 	max-height: 80px;
 	display: inline;
 	position: absolute;

@@ -1,10 +1,11 @@
-import { Vec2, Polygon } from './geom';
+import { Vec2, Rect, Polygon } from './geom';
 import { ImageLabelSet, LabelRegion, Dimension, DimensionType } from './label';
 
 enum State {
-	None,
-	NewPolygon,
-	DragVertex,
+	None, // Ready for action
+	Frozen, // All mouse input ignored
+	NewPolygon, // Busy drawing a new polygon (or new rectangle)
+	DragVertex, // Busy dragging a vertex of a polygon or rectangle
 }
 
 // Closest line segment, or closest vertex
@@ -20,35 +21,65 @@ export class HitTest {
 	}
 }
 
+// Popup is used to represent a hotspot on the image that can be clicked on,
+// and then we show a dropdown. That dropdown can be used to change the
+// label of a dimension.
+class Popup {
+	hitBox: Rect;
+	region: LabelRegion;
+	dimension: string;
+	isIntensity: boolean; // else category
+
+	constructor(hitBox: Rect, region: LabelRegion, dimension: string, isIntensity: boolean) {
+		this.region = region;
+		this.hitBox = hitBox;
+		this.dimension = dimension;
+		this.isIntensity = isIntensity;
+	}
+}
+
+export enum EditState {
+	StartEdit,
+	EndEdit,
+}
+
 export enum Modification {
 	Modify,
 	Delete,
 }
 
+export type EditStateChangeCallback = (newState: EditState) => void;
 export type ModifyCallback = (action: Modification, region: LabelRegion) => void;
+export type ChangeLabelCallback = (cursorX: number, cursorY: number, region: LabelRegion, dimension: string, isIntensity: boolean) => void;
 
 // Draw facilitates drawing polygon labels
 // World space is the pixels of the original image.
 // Canvas space is the canvas pixels
 export class Draw {
 	public dim: Dimension | null = null;
-	public activeLabel: string = ''; // eg 1..5, or 'gravel', 'tar', 'stop sign', etc.
+	public activeLabelCategory: string = ''; // eg 'gravel', 'tar', 'stop sign', or 1..5 for whole image "condition" classifiers etc.
+	public activeLabelIntensity: number = 0; // eg 1..5, for the extra "intensity" dimension of defects such as crocodile cracks
 	public canvas: HTMLCanvasElement = document.createElement('canvas');
 	public img: HTMLImageElement = document.createElement('img');
-	public usableFramePortion: number = 1 / 3;
-	public state: State = State.None;
+	public usableFramePortion: number = 1 / 3; // This is for whole-image labels (eg Is this a tar or a dirt road?)
+	public state: State = State.None; // Are we dragging an existing vertex, or adding a new polygon, etc.
+	public isCreatingRectangle: boolean = false; // Sub-state of State.NewPolygon
+	public isModifyingRectangle: boolean = false; // Sub-state of State.DragVertex
 	public drawText: boolean = false;
 	public labels: ImageLabelSet = new ImageLabelSet();
 	public curRegion: LabelRegion | null = null;
-	public curDragIdx: number = -1;
-	public ghostPoly: Polygon | null = null;
+	public curDragIdx: number = -1; // Index of the vertex currently being dragged
+	public ghostPoly: Polygon | null = null; // Ghost is the automatically computed circle through the 4 points that the user has entered
 	public busyUpdatingGhost: boolean = false;
 	public minVxDragPx = 30;
 	public minClickPx = 30;
 	public vpScale: Vec2 = new Vec2(0, 0); // scale from image pixels to canvas pixels
 	public vpOffset: Vec2 = new Vec2(0, 0); // offset from image origin to canvas origin
+	public popups: Popup[] = [];
 
+	public onEditStateChange: EditStateChangeCallback | null = null;
 	public onModifyRegion: ModifyCallback | null = null;
+	public onChangeLabel: ChangeLabelCallback | null = null;
 
 	initialize(canvas: HTMLCanvasElement) {
 		this.canvas = canvas;
@@ -69,6 +100,17 @@ export class Draw {
 		return this.dim !== null && this.dim.type === DimensionType.Polygon;
 	}
 
+	get isSemanticSegmentationDim(): boolean {
+		return this.isPolygonDim && this.dim !== null && this.dim.isSemanticSegmentation;
+	}
+
+	freeze() {
+		this.state = State.Frozen;
+	}
+	unfreeze() {
+		this.state = State.None;
+	}
+
 	img2can(pt: Vec2): Vec2 {
 		return pt.mul(this.vpScale).add(this.vpOffset);
 		//return pt.add(this.vpOffset).mul(this.vpScale);
@@ -82,14 +124,19 @@ export class Draw {
 		//return new Vec2(this.img.naturalWidth * pt.x / this.canvas.offsetWidth, this.img.naturalHeight * pt.y / this.canvas.offsetHeight);
 	}
 
-	emitModified() {
+	emitModified(region: LabelRegion) {
 		if (this.onModifyRegion !== null)
-			this.onModifyRegion(Modification.Modify, this.curRegion!);
+			this.onModifyRegion(Modification.Modify, region);
 	}
 
 	emitDeleted(region: LabelRegion) {
 		if (this.onModifyRegion !== null)
 			this.onModifyRegion(Modification.Delete, region);
+	}
+
+	emitEditStateChange(newState: EditState) {
+		if (this.onEditStateChange)
+			this.onEditStateChange(newState);
 	}
 
 	zoomAll(paintNow: boolean = true) {
@@ -141,6 +188,7 @@ export class Draw {
 		if (this.dim === null)
 			return;
 		cx.fillStyle = '';
+		this.popups = [];
 		for (let region of this.labels.regionsWithPolygons()) {
 			// draw region dimly if it's labelled for a different dimension to the one we're currently defining
 			let isDefined = region.labels[this.dim.id] !== undefined;
@@ -176,11 +224,18 @@ export class Draw {
 				cx.fill();
 			}
 			if (this.drawText && this.dim !== null && region.labels[this.dim.id] !== undefined) {
-				let val = this.dim.label2Value(region.labels[this.dim.id]);
+				let lab = region.labels[this.dim.id];
+				let category = this.dim.label2Value(lab.category);
 				let mx = (minP.x + maxP.x) / 2;
 				let my = (minP.y + maxP.y) / 2;
-				let title = val !== null ? val.title : 'UNRECOGNIZED';
-				this.drawTextWithHalo(cx, title, mx, my);
+				let title = category != null ? category.title : 'UNRECOGNIZED';
+				let categoryBox = this.drawTextWithHalo(cx, title, mx, my);
+				this.popups.push(new Popup(categoryBox, region, this.dim.id, false));
+				if (category.hasIntensity) {
+					let intensity = lab.intensity != undefined ? lab.intensity : '0';
+					let intensityBox = this.drawTextWithHalo(cx, intensity.toFixed(0), categoryBox.x2 + 10, my);
+					this.popups.push(new Popup(intensityBox, region, this.dim.id, true));
+				}
 			}
 		}
 	}
@@ -200,7 +255,8 @@ export class Draw {
 		cx.stroke();
 	}
 
-	drawTextWithHalo(cx: CanvasRenderingContext2D, txt: string, x: number, y: number) {
+	// Returns the canvas coordinates of the rendered text box
+	drawTextWithHalo(cx: CanvasRenderingContext2D, txt: string, x: number, y: number): Rect {
 		cx.fillStyle = 'rgba(255,255,255,0.3)';
 		cx.font = '16px sans-serif';
 		cx.textAlign = 'center';
@@ -213,9 +269,15 @@ export class Draw {
 		}
 		cx.fillStyle = 'rgba(0,0,0,1)';
 		cx.fillText(txt, x, y);
+		let metrics = cx.measureText(txt);
+		let r = new Rect(-metrics.actualBoundingBoxLeft, -metrics.actualBoundingBoxAscent, metrics.actualBoundingBoxRight, metrics.actualBoundingBoxDescent);
+		r.translate(x, y);
+		return r;
 	}
 
 	onMouseWheel(evGen: Event) {
+		if (this.state === State.Frozen)
+			return;
 		let ev = evGen as MouseWheelEvent;
 		// this is necessary for pinch zooming to work on laptops
 		ev.preventDefault();
@@ -234,10 +296,12 @@ export class Draw {
 	}
 
 	onMouseDown(ev: MouseEvent) {
+		if (this.state === State.Frozen)
+			return;
 		if (!this.isPolygonDim)
 			return;
 
-		// Hold down ctrl to force creation of a new polygon (instead of moving an existing vertex)
+		// forceNewRegion forces the creation of a new polygon (instead of moving an existing vertex)
 		let forceNewRegion = ev.shiftKey;
 		let deleteVertex = ev.ctrlKey;
 		let forceDelete = ev.altKey;
@@ -250,6 +314,7 @@ export class Draw {
 			if (!forceNewRegion) {
 				let htVx = this.closestPolygonVertex(clickPtCanvas);
 				let htObj = this.closestPolygon(clickPtCanvas);
+				let popup = this.closestPopup(clickPtCanvas);
 				if (forceDelete) {
 					if (htObj !== null && htObj.distance < this.minClickPx) {
 						let idx = this.labels.regions.findIndex((r: LabelRegion) => r === htObj!.region);
@@ -261,40 +326,59 @@ export class Draw {
 						this.emitDeleted(htObj.region);
 					}
 					return;
+				} else if (popup) {
+					if (this.onChangeLabel) {
+						// add a hackish 5px offset so that the mouseup is not seen by the popup
+						this.onChangeLabel(ev.layerX - 12, ev.layerY + 5, popup.region, popup.dimension, popup.isIntensity);
+						return;
+					}
 				}
+
 				if (htVx !== null && htVx.distance < this.minClickPx) {
 					if (deleteVertex && htVx.region.polygon!.vx.length > 3) {
 						htVx.region.polygon!.vx.splice(htVx.idx, 1);
+						this.emitModified(htVx.region);
 					} else {
+						// Drag an existing vertex
 						this.state = State.DragVertex;
 						this.curRegion = htVx.region;
 						this.curDragIdx = htVx.idx;
-						this.curRegion!.polygon!.vx[this.curDragIdx] = clickPtWorld;
+						this.isModifyingRectangle = this.curRegion.polygon!.isRectangle;
+						this.dragVertex(clickPtWorld);
+						this.emitEditStateChange(EditState.StartEdit);
 					}
 					this.paint();
 					return;
-				} else if (htObj !== null && htObj.distance < this.minClickPx) {
+				} else if (htObj !== null && htObj.distance < this.minClickPx && !htObj.region.polygon!.isRectangle) {
+					// Insert a new vertex on an edge
 					this.state = State.DragVertex;
 					this.curRegion = htObj.region;
 					this.curRegion.polygon!.vx.splice(htObj.idx + 1, 0, clickPtWorld);
 					this.curDragIdx = htObj.idx + 1;
 					this.paint();
+					this.emitEditStateChange(EditState.StartEdit);
 				}
 			}
-			if (this.state === State.None && this.dim !== null && this.activeLabel !== '') {
+			if (this.state === State.None && this.dim !== null && this.activeLabelCategory !== '') {
 				this.state = State.NewPolygon;
+				this.isCreatingRectangle = this.isSemanticSegmentationDim && this.labels.regionsWithPolygons().length === 0;
 				this.curRegion = new LabelRegion();
 				this.curRegion.polygon = new Polygon();
-				this.curRegion.polygon.vx.push(clickPtWorld);
-				this.curRegion.polygon.vx.push(clickPtWorld);
+				this.curRegion.polygon.vx.push(clickPtWorld.clone());
+				this.curRegion.polygon.vx.push(clickPtWorld.clone());
+				if (this.isCreatingRectangle) {
+					this.curRegion.polygon.vx.push(clickPtWorld.clone());
+					this.curRegion.polygon.vx.push(clickPtWorld.clone());
+				}
 				this.labels.regions.push(this.curRegion);
+				this.emitEditStateChange(EditState.StartEdit);
 			}
 		} else if (this.state === State.NewPolygon) {
-			if (ev.button === 2 || (ev.button === 0 && ev.ctrlKey)) {
+			if (ev.button === 2 || (ev.button === 0 && ev.ctrlKey) || (ev.button === 0 && this.isCreatingRectangle)) {
 				ev.preventDefault();
 				if (ev.ctrlKey && this.ghostPoly !== null) {
 					this.curRegion!.polygon = this.ghostPoly;
-				} else {
+				} else if (!this.isCreatingRectangle) {
 					this.curRegion!.polygon!.vx.pop();
 				}
 				let poly = this.curRegion!.polygon!;
@@ -302,12 +386,13 @@ export class Draw {
 					// delete if not at least 3 vertices
 					this.labels.regions.pop();
 				} else {
-					this.emitModified();
+					this.emitModified(this.curRegion!);
 				}
 				this.state = State.None;
 				this.curRegion = null;
 				this.ghostPoly = null;
 				this.paint();
+				this.emitEditStateChange(EditState.EndEdit);
 			} else {
 				this.curRegion!.polygon!.vx.push(clickPtWorld);
 			}
@@ -315,6 +400,8 @@ export class Draw {
 	}
 
 	onContextMenu(ev: MouseEvent) {
+		if (this.state === State.Frozen)
+			return;
 		if (!this.isPolygonDim)
 			return;
 
@@ -322,18 +409,23 @@ export class Draw {
 	}
 
 	onMouseUp(ev: MouseEvent) {
+		if (this.state === State.Frozen)
+			return;
 		if (!this.isPolygonDim)
 			return;
 
 		if (this.state === State.DragVertex) {
-			this.emitModified();
+			this.emitModified(this.curRegion!);
 			this.state = State.None;
 			this.curRegion = null;
 			this.paint();
+			this.emitEditStateChange(EditState.EndEdit);
 		}
 	}
 
 	onMouseMove(ev: MouseEvent) {
+		if (this.state === State.Frozen)
+			return;
 		let ptWorld = this.can2img(new Vec2(ev.offsetX, ev.offsetY));
 
 		if (this.state === State.None)
@@ -341,15 +433,37 @@ export class Draw {
 
 		if (this.state === State.NewPolygon) {
 			let p = this.curRegion!.polygon!;
-			p.vx[p.vx.length - 1] = ptWorld;
-			if (p.vx.length === 4)
+			if (this.isCreatingRectangle) {
+				p.vx[1].x = ptWorld.x;
+				p.vx[2] = ptWorld.clone();
+				p.vx[3].y = ptWorld.y;
+			} else {
+				p.vx[p.vx.length - 1] = ptWorld.clone();
+			}
+			if (p.vx.length === 4 && !this.isCreatingRectangle && !this.isSemanticSegmentationDim)
 				this.updateGhost();
 			else
 				this.ghostPoly = null;
 		} else if (this.state === State.DragVertex) {
-			this.curRegion!.polygon!.vx[this.curDragIdx] = ptWorld;
+			this.dragVertex(ptWorld);
 		}
 		this.paint();
+	}
+
+	private dragVertex(ptWorld: Vec2) {
+		if (this.isModifyingRectangle) {
+			let vx = this.curRegion!.polygon!.vx;
+			vx[this.curDragIdx] = ptWorld;
+			let i = this.curDragIdx;
+			let j = (this.curDragIdx + 2) % 4; // j = the opposite vertex
+			let x1 = Math.min(vx[i].x, vx[j].x);
+			let y1 = Math.min(vx[i].y, vx[j].y);
+			let x2 = Math.max(vx[i].x, vx[j].x);
+			let y2 = Math.max(vx[i].y, vx[j].y);
+			this.curRegion!.polygon!.setRectangle(x1, y1, x2, y2);
+		} else {
+			this.curRegion!.polygon!.vx[this.curDragIdx] = ptWorld;
+		}
 	}
 
 	private updateGhost() {
@@ -431,6 +545,13 @@ export class Draw {
 		return new HitTest(best!, bestIdx, minDist);
 	}
 
+	private closestPopup(ptCanvas: Vec2): Popup | null {
+		for (let p of this.popups) {
+			if (p.hitBox.isInsideMe(ptCanvas.x, ptCanvas.y))
+				return p;
+		}
+		return null;
+	}
 }
 
 // Snap pt to the line that runs through P1..P2

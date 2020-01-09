@@ -44,6 +44,7 @@ private:
 	Error LoadDimensionsFile(std::string dimensionsFile);
 	Error ApiSetLabel(phttp::Response& w, phttp::RequestPtr r, dba::Tx* tx);
 	Error ApiGetLabels(phttp::Response& w, phttp::RequestPtr r, dba::Tx* tx);
+	Error ApiGetFolderSummary(phttp::Response& w, phttp::RequestPtr r, dba::Tx* tx);
 	void  ServeStatic(phttp::Response& w, phttp::RequestPtr r);
 	void  Report(phttp::Response& w, phttp::RequestPtr r);
 	void  Solve(phttp::Response& w, phttp::RequestPtr r);

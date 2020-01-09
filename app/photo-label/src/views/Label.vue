@@ -1,90 +1,146 @@
 <template>
 	<div class="outer">
-		<div class='control'>
-			<div class='controlTop'>
-				<div class='titleBar'>
-					<router-link to='/' class='backBtn'>⬅</router-link>
-					<div class='title'>{{dim ? dim.niceName : 'none'}}</div>
+		<div class="control">
+			<div class="controlTop">
+				<div class="titleBar">
+					<router-link to="/" class="backBtn">⬅</router-link>
+					<div class="title">{{dim ? dim.niceName : 'none'}}</div>
 				</div>
-				<div v-if='dim && isPolygonDim' style='display: flex; flex-direction: column; max-height: 400px; overflow-y: auto'>
-					<label-image v-for='val in dim.values' :key='val.label' :value='val' :isActive='activeLabel === val.label' @click='onLabelRowClick(val)' />
+				<div
+					v-if="dim && isPolygonDim"
+					style="display: flex; flex-direction: column; max-height: 400px; overflow-y: auto"
+				>
+					<label-image
+						v-for="val in dim.values"
+						:key="val.label"
+						:value="val"
+						:isActive="activeLabelCategory === val.label"
+						@click="onLabelRowClick(val)"
+					/>
 				</div>
-				<div v-else-if='dim'>
-					<div style='display: flex; margin-bottom: 0.5em'>
-						<div class='skLeft'>⌨️</div>
-						<div class='skRight'>value</div>
+				<div v-else-if="dim">
+					<div style="display: flex; margin-bottom: 0.5em">
+						<div class="skLeft">⌨️</div>
+						<div class="skRight">value</div>
 					</div>
-					<div v-for='val in dim.values' :key='val.label' class='labelRow' :class='{activeLabelRow: activeLabel === val.label}' @click='onLabelRowClick(val)'>
-						<div class='skLeft'>{{dim.valueToShortcutKey[val.title]}}</div>
-						<div class='skRight'>{{val.title}}</div>
+					<div
+						v-for="val in dim.values"
+						:key="val.label"
+						class="labelRow"
+						:class="{activeLabelRow: activeLabelCategory === val.label}"
+						@click="onLabelRowClick(val)"
+					>
+						<div class="skLeft">{{dim.valueToShortcutKey[val.title]}}</div>
+						<div class="skRight">{{val.title}}</div>
 					</div>
-					<div class='labelRow'><div class='skLeft'>space</div><div class='skRight' style='color: #a55'>remove label</div></div>
+					<div class="labelRow">
+						<div class="skLeft">space</div>
+						<div class="skRight" style="color: #a55">remove label</div>
+					</div>
 				</div>
-				<div class='optionsGroup'>
-					<label><input type='checkbox' v-model='drawTextOnLabels' />Show Labels</label>
+				<div class="optionsGroup">
+					<label>
+						<input type="checkbox" v-model="drawTextOnLabels" />Show Labels
+					</label>
 				</div>
-				<div v-if='isPolygonDim' style='margin: 1rem 0.5rem; font-size: 0.85rem; color: #777;'>
-					Press left/right keys to scan through the images.
-					<br><br>
-					<span class='keyTxt'>CTRL</span> delete vertex
-					<br>
-					<span class='keyTxt'>ALT</span> delete polygon
-					<br>
-					<span class='keyTxt'>Right Click</span> finish
-					<br>
-					<span class='keyTxt'>CTRL + Right Click</span> finish circle
+				<div v-if="isPolygonDim" style="margin: 1rem 0.5rem; font-size: 0.85rem; color: #777;">
+					Press left/right keys to scan through the images. Hold down SHIFT to jump to images with labels on them.
+					<br />
+					<br />
+					<span class="keyTxt">CTRL</span> delete vertex
+					<br />
+					<span class="keyTxt">ALT</span> delete polygon
+					<br />
+					<span class="keyTxt">Right Click</span> finish
+					<br />
+					<span class="keyTxt">CTRL + Right Click</span> finish circle
+					<br />
+					<span class="keyTxt">F</span> reset zoom
+					<br />
+					<span class="keyTxt">1..5</span> intensity 1..5
 				</div>
-				<div v-else style='margin: 1rem 0.5rem; font-size: 0.85rem; color: #777;'>
+				<div v-else style="margin: 1rem 0.5rem; font-size: 0.85rem; color: #777;">
 					Press the shortcut key in the left column to label the image.
-					<br><br>
-					Press left/right keys to scan through the images.
-					<br><br>
-					Hold down <em>CTRL</em> and press left/right to apply the same label to the previous/next image.
+					<br />
+					<br />Press left/right keys to scan through the images.
+					<br />
+					<br />Hold down
+					<em>CTRL</em> and press left/right to apply the same label to the previous/next image.
 				</div>
 				<!--
 				<div style='display: flex'><div class='skLeft'>←</div><div class='skRight'>previous</div></div>
 				<div style='display: flex'><div class='skLeft'>→</div><div class='skRight'>next</div></div>
 				-->
 			</div>
-			<div class='controlBottom'>
-				<div style='margin-bottom: 10px'>Dataset</div>
-				<dataset-picker @change='onDatasetChanged' style='max-height: 100%; overflow: auto; margin-left: 5px' />
+			<div class="controlBottom">
+				<div style="margin-bottom: 10px">Dataset</div>
+				<dataset-picker
+					@change="onDatasetChanged"
+					style="max-height: 100%; overflow: auto; margin-left: 5px"
+				/>
 			</div>
 		</div>
-		<div class='canvasContainer'>
-			<canvas class='imgCanvas' ref='imgCanvas' :style='canvasStyle'>
-			</canvas>
-			<div class='overlayContainer'>
-				<div class='overlayInfo'>
+		<div class="canvasContainer">
+			<canvas class="imgCanvas" ref="imgCanvas" :style="canvasStyle"></canvas>
+			<div class="overlayContainer">
+				<div class="overlayInfo">
 					<div>{{currentImgName}}</div>
-					<div style='display:flex; align-items: center'>
-						<div style='margin-right: 0.3em'>🌞</div>
-						<image-scroller style='width: 10rem' :pos='brightness' @change='onBrightnessChange'></image-scroller>
+					<div style="display:flex; align-items: center">
+						<div style="margin-right: 0.3em">🌞</div>
+						<image-scroller style="width: 10rem" :pos="brightness" @change="onBrightnessChange"></image-scroller>
 					</div>
 				</div>
-				<div class='labelTxt' :style='{"font-size": labelTxtFontSize}'>
-					{{wholeImageLabel}}
-				</div>
-				<div style='pointer-events: auto; position: absolute; right: 0px; top: 0px; padding: 10px'>
-					<svg-button icon='/maximize-2.svg' @click='draw.zoomAll()'></svg-button>
+				<div class="labelTxt" :style="{'font-size': labelTxtFontSize}">{{wholeImageLabel}}</div>
+				<div style="pointer-events: auto; position: absolute; right: 0px; top: 0px; padding: 10px">
+					<svg-button icon="/maximize-2.svg" @click="draw.zoomAll()"></svg-button>
 				</div>
 			</div>
-			<div class='scrollContainer'>
-				<image-scroller class='scroller' :pos='scrollPos' @change='onScroll'></image-scroller>
+			<div class="scrollContainer">
+				<image-scroller
+					class="scroller"
+					:style="{'pointer-events': showTimeSlider ? 'auto' : 'none'}"
+					:pos="scrollPos"
+					:ticks="scrollerTicks"
+					@change="onScroll"
+				></image-scroller>
 			</div>
+			<div
+				v-if="showLabelChangeDropdown"
+				class="dropdown"
+				:style="{left: dropdownLeft + 'px', top: dropdownTop + 'px'}"
+			>
+				<div v-if="labelChangeDropdownIsIntensity">
+					<div
+						v-for="intensity of intensityValues"
+						:key="intensity"
+						class="dropdownRow"
+						@click="onLabelChangeSelectIntensity(intensity)"
+					>{{intensity}}</div>
+				</div>
+				<div v-else>
+					<div
+						v-for="lab of dim.values"
+						:key="lab.label"
+						class="dropdownRow"
+						@click="onLabelChangeSelectCategory(lab)"
+					>{{lab.title}}</div>
+				</div>
+			</div>
+			<div class="intensity">{{activeLabelIntensity}}</div>
 		</div>
 	</div>
 </template>
 
 <script lang="ts">
 import { Prop, Watch, Component, Vue } from 'vue-property-decorator';
-import { Dimension, DimensionSet, DimensionType, DirtyRegion, DirtyRegionQueue, LabelRegion, DimensionValue } from '@/label';
+import { Dimension, DimensionSet, DimensionType, DirtyRegion, DirtyRegionQueue, LabelRegion, DimensionValue, LabelValue } from '@/label';
 import ImageScroller from '@/components/ImageScroller.vue';
 import DatasetPicker from '@/components/DatasetPicker.vue';
 import SvgButton from '@/components/SvgButton.vue';
 import LabelImage from '@/components/LabelImage.vue';
 import * as draw from '@/draw';
 import { ImageLabelSet } from '@/label';
+import * as _ from 'underscore';
 
 @Component({
 	components: {
@@ -98,6 +154,8 @@ export default class Label extends Vue {
 	@Prop(String) dimid!: string; // Dimension that we are labelling
 
 	allPhotos: string[] = [];
+	photoHasLabel: { [index: string]: boolean } = {}; // True if the given photo has at least one label in the current dimension
+	scrollerTicks: number[] = []; // Tick marks for our time slider, showing where existing labels are
 	selectedPhotos: string[] = []; // a subset of the photos in allPhotos, which match the prefix 'dataset'
 	dataset: string = '';
 	dimensions: DimensionSet = new DimensionSet();
@@ -106,9 +164,17 @@ export default class Label extends Vue {
 	brightness: number = 0.5;
 	ctrlKeyDown: boolean = false;
 	waitingForImg: boolean = false;
+	showTimeSlider: boolean = true;
+	showLabelChangeDropdown: boolean = false;
+	labelChangeDropdownIsIntensity: boolean = false;
+	intensityValues: number[] = [1, 2, 3, 4, 5];
+	dropdownRegion: LabelRegion | null = null;
+	dropdownLeft: number = 0;
+	dropdownTop: number = 0;
 	dirtyQueue: DirtyRegionQueue = new DirtyRegionQueue();
 	draw: draw.Draw = new draw.Draw();
 	//isResizeBusy: boolean = false;
+	fetchScrollerTicksDebounced = _.debounce(this.fetchScrollerTicks, 2000);
 
 	@Watch('imgIndex') onCurrentImgChanged() {
 		// Don't load the label for the whole image if control is being held down, because in this case, we are assigning
@@ -132,12 +198,20 @@ export default class Label extends Vue {
 		this.draw.labels = labels;
 	}
 
-	get activeLabel(): string {
-		return this.draw.activeLabel;
+	get activeLabelCategory(): string {
+		return this.draw.activeLabelCategory;
 	}
 
-	set activeLabel(label: string) {
-		this.draw.activeLabel = label;
+	set activeLabelCategory(category: string) {
+		this.draw.activeLabelCategory = category;
+	}
+
+	get activeLabelIntensity(): number {
+		return this.draw.activeLabelIntensity;
+	}
+
+	set activeLabelIntensity(intensity: number) {
+		this.draw.activeLabelIntensity = intensity;
 	}
 
 	get dim(): Dimension | null {
@@ -154,6 +228,12 @@ export default class Label extends Vue {
 		if (this.dim === null)
 			return true;
 		return this.dim.type === DimensionType.Polygon;
+	}
+
+	get isSemanticSegmentation(): boolean {
+		if (this.dim === null)
+			return true;
+		return this.dim.type === DimensionType.Polygon && this.dim.isSemanticSegmentation;
 	}
 
 	get scrollPos(): number {
@@ -201,7 +281,7 @@ export default class Label extends Vue {
 		let lab = this.labels.wholeImageRegion.labels[this.dimid];
 		if (lab === undefined)
 			return '';
-		return lab;
+		return lab.category;
 	}
 
 	get drawTextOnLabels(): boolean {
@@ -215,6 +295,14 @@ export default class Label extends Vue {
 	}
 
 	onKeyDown(ev: KeyboardEvent) {
+		if (ev.key === 'f') {
+			this.draw.zoomAll();
+			return;
+		} else if (ev.key === '1' || ev.key === '2' || ev.key === '3' || ev.key === '4' || ev.key === '5') {
+			this.activeLabelIntensity = parseInt(ev.key, 10);
+			return;
+		}
+
 		if (ev.key === 'Control')
 			this.ctrlKeyDown = true;
 
@@ -235,10 +323,22 @@ export default class Label extends Vue {
 		// showing any updates. All things considered, it's probably a good thing to make sure
 		// that every single frame flashes before the user's eyes when he is labelling.
 		if (seek !== 0 && !this.waitingForImg) {
-			this.imgIndex = Math.max(0, Math.min(this.imgIndex + seek, this.selectedPhotos.length - 1));
+			if (ev.shiftKey) {
+				// When SHIFT is held down, seek to the prev/next image that has at least one label
+				let i = this.imgIndex + seek;
+				for (; i >= 0 && i < this.selectedPhotos.length; i += seek) {
+					if (this.photoHasLabel[this.selectedPhotos[i]])
+						break;
+				}
+				if (i >= 0 && i < this.selectedPhotos.length)
+					this.imgIndex = i;
+			} else {
+				this.imgIndex += seek;
+			}
+			this.imgIndex = Math.max(0, Math.min(this.imgIndex, this.selectedPhotos.length - 1));
 			this.saveScrollPosToLocalStorage();
 			if (ev.ctrlKey && this.isWholeImageDim)
-				this.setWholeImageLabel(this.activeLabel);
+				this.setWholeImageLabel(this.activeLabelCategory);
 		} else if (this.dim) {
 			//console.log(ev);
 			let val = this.dim.shortcutKeyToValue[ev.key.toUpperCase()];
@@ -249,7 +349,7 @@ export default class Label extends Vue {
 					this.setWholeImageLabel('');
 			} else {
 				if (val !== undefined)
-					this.activeLabel = val;
+					this.activeLabelCategory = val;
 			}
 		}
 	}
@@ -260,7 +360,7 @@ export default class Label extends Vue {
 	}
 
 	onLabelRowClick(val: DimensionValue) {
-		this.activeLabel = val.label;
+		this.activeLabelCategory = val.label;
 	}
 
 	onBrightnessChange(pos: number) {
@@ -307,6 +407,7 @@ export default class Label extends Vue {
 			this.selectedPhotos = this.allPhotos;
 			this.restoreImgIndexFromLocalStorage();
 			this.onCurrentImgChanged(); // force a change, because imgIndex doesn't mean what it used to
+			this.computeScrollerTicks();
 			return;
 		}
 		let s = [];
@@ -317,14 +418,16 @@ export default class Label extends Vue {
 		this.selectedPhotos = s;
 		this.restoreImgIndexFromLocalStorage();
 		this.onCurrentImgChanged(); // force a change, because imgIndex doesn't mean what it used to
+		this.computeScrollerTicks();
 	}
 
 	setWholeImageLabel(val: string) {
-		this.activeLabel = val;
+		this.activeLabelCategory = val;
 		if (this.dim === null)
 			return;
 		this.$set(this.labels.wholeImageRegion.labels, this.dimid, val);
 		this.dirtyQueue.push(new DirtyRegion(this.imgPath, this.labels.wholeImageRegion, this.dimid));
+		this.fetchScrollerTicksDebounced();
 	}
 
 	drawCanvas() {
@@ -381,18 +484,82 @@ export default class Label extends Vue {
 
 	onRegionModified(action: draw.Modification, region: LabelRegion) {
 		if (action === draw.Modification.Modify) {
-			if (this.draw.curRegion!.labels[this.dimid] === undefined) {
+			if (this.draw.curRegion && this.draw.curRegion.labels[this.dimid] === undefined) {
 				// This path only gets hit when a new region is created
-				this.$set(this.draw.curRegion!.labels, this.dimid, this.activeLabel);
+				this.$set(this.draw.curRegion.labels, this.dimid, new LabelValue(this.activeLabelCategory, this.activeLabelIntensity));
 			}
 			this.dirtyQueue.push(new DirtyRegion(this.imgPath, region, this.dimid));
 		} else if (action === draw.Modification.Delete) {
 			this.dirtyQueue.push(new DirtyRegion(this.imgPath, region, this.dimid));
 		}
+
+		this.fetchScrollerTicksDebounced();
+	}
+
+	onDrawEditStatechanged(newState: draw.EditState) {
+		if (newState === draw.EditState.StartEdit) {
+			// Hide the time slider, so that it doesn't get in the way
+			this.showTimeSlider = false;
+		} else if (newState === draw.EditState.EndEdit) {
+			this.showTimeSlider = true;
+		}
+	}
+
+	onChangeLabel(cursorX: number, cursorY: number, region: LabelRegion, dimension: string, isIntensity: boolean) {
+		this.draw.freeze(); // freeze draw UI, so that it doesn't pick up mouse clicks on our dropdown
+		this.dropdownRegion = region;
+		this.showLabelChangeDropdown = true;
+		this.labelChangeDropdownIsIntensity = isIntensity;
+		this.dropdownLeft = cursorX;
+		this.dropdownTop = cursorY;
+	}
+
+	onLabelChangeSelectIntensity(intensity: number) {
+		this.dropdownRegion!.labels[this.dimid].intensity = intensity;
+		this.postLabelDropdownChange();
+	}
+
+	onLabelChangeSelectCategory(lab: DimensionValue) {
+		this.dropdownRegion!.labels[this.dimid].category = lab.label;
+		this.postLabelDropdownChange();
+	}
+
+	postLabelDropdownChange() {
+		this.showLabelChangeDropdown = false;
+		this.onRegionModified(draw.Modification.Modify, this.dropdownRegion!);
+		this.draw.paint();
+		this.draw.unfreeze();
+	}
+
+	// Get all photos that have at least one label for the given dimension.
+	// If performance is a problem here, we could also use ?prefix=<dataset>
+	fetchScrollerTicks() {
+		fetch('/api/db/get_folder_summary?dimension=' + encodeURIComponent(this.dimid)).then((r) => {
+			r.json().then((jr) => {
+				let photos = jr as string[];
+				this.photoHasLabel = {};
+				for (let p of photos)
+					this.photoHasLabel[p] = true;
+				this.computeScrollerTicks();
+			});
+		});
+	}
+
+	computeScrollerTicks() {
+		let newTicks = [];
+		for (let i = 0; i < this.selectedPhotos.length; i++) {
+			if (this.photoHasLabel[this.selectedPhotos[i]]) {
+				newTicks.push(i / (this.selectedPhotos.length - 1));
+			}
+		}
+		this.scrollerTicks = newTicks;
 	}
 
 	mounted() {
 		this.draw.onModifyRegion = this.onRegionModified;
+		this.draw.onEditStateChange = this.onDrawEditStatechanged;
+		this.draw.onChangeLabel = this.onChangeLabel;
+
 		this.draw.initialize(this.$refs.imgCanvas as HTMLCanvasElement);
 
 		let sb = localStorage.getItem('brightness');
@@ -413,6 +580,7 @@ export default class Label extends Vue {
 				}
 			});
 		});
+		this.fetchScrollerTicks();
 		DimensionSet.fetch().then((dset: DimensionSet) => {
 			this.dimensions = dset;
 			this.draw.dim = this.dim;
@@ -538,8 +706,36 @@ export default class Label extends Vue {
 	pointer-events: none;
 }
 .scroller {
-	margin: 30px;
+	margin: 30px 30px 4px 30px;
 	pointer-events: auto;
+}
+.dropdown {
+	position: absolute;
+	background-color: #fff;
+	min-width: 20px;
+	min-height: 20px;
+	box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.5);
+}
+.dropdownRow {
+	display: flex;
+	//background-color: #fff;
+	cursor: pointer;
+	padding: 5px 10px;
+}
+.dropdownRow:hover {
+	color: #fff;
+	background-color: rgb(75, 102, 255);
+}
+.intensity {
+	position: absolute;
+	left: 0px;
+	top: 0px;
+	font-size: 100px;
+	color: #000;
+	text-shadow: 0px 0px 10px rgba(255, 255, 255, 1);
+	background-color: rgba(255, 255, 255, 0.5);
+	padding: 0px 20px;
+	border-bottom-right-radius: 20px;
 }
 .overlayContainer {
 	position: absolute;

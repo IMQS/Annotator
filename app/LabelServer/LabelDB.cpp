@@ -6,6 +6,12 @@ using namespace std;
 namespace imqs {
 namespace label {
 
+// I added the label.intensity column in order to represent the severity of tar defects.
+// I thought that "intensity" is a little more generic than the word "severity".
+// At the same time, I thought it good to rename 'value' to 'category', so that every
+// label has (category, intensity). The old word 'value' now feels too vague, after
+// adding intensity too.
+
 // We can't use a null region_id to indicate "whole image", because if we do that,
 // then our unique constraint on (image_path, region_id) will not be enforced for
 // multiple copies of the same image_path, with region_id being null. Basically,
@@ -29,6 +35,10 @@ const char* LabelDB::Migrations[] = {
     "DROP TABLE sample",
     "ALTER TABLE sample2 RENAME TO sample",
     "CREATE UNIQUE INDEX idx_sample_image_path_region_id ON sample (image_path, region_id)",
+    "",
+    "ALTER TABLE label ADD COLUMN intensity REAL",
+    "",
+    "ALTER TABLE label RENAME COLUMN value TO category",
     nullptr,
 };
 
@@ -54,6 +64,7 @@ Error LabelDB::Open(uberlog::Logger* log, std::string rootDir) {
 // I tried, but couldn't figure out how to do it in the sqlite app.
 // This was used on 2019-05-15. The plan going forward is to make the labeller work
 // over the web, so that we never have to do this again.
+// NOTE: This code won't work since 2019-01-08, when I renamed label.value to label.category.
 Error LabelDB::MergeOnceOff() {
 	dba::ConnDesc d1;
 	dba::Conn*    mergeDB;
