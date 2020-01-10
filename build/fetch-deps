@@ -91,3 +91,7 @@ sudo apt-get install -y \
 # make -j
 # sudo make install
 # sudo ldconfig
+
+# libtorch:
+# Download the official LibTorch binary (with C++11 ABI) from the PyTorch "Getting Started" website,
+# and extract it into /usr/local/libtorch

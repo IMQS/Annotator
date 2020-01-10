@@ -290,99 +290,6 @@ local libcurl = ExternalLibrary {
 	}
 }
 
-local cntk_bin = "third_party/cntk/Windows/lib/" 
-
-local cntk_dlls_raw = {
-	"Cntk.BinaryConvolutionExample-2.2",
-	"Cntk.Composite-2.2",
-	"Cntk.Core-2.2",
-	--"Cntk.Core.CSBinding-2.2",
-	--"Cntk.Core.JavaBinding-2.2",
-	"Cntk.Core.Managed-2.2",
-	"Cntk.Deserializers.Binary-2.2",
-	"Cntk.Deserializers.HTK-2.2",
-	"Cntk.Deserializers.Image-2.2",
-	"Cntk.Deserializers.TextFormat-2.2",
-	"Cntk.Eval-2.2",
-	--"Cntk.Eval.Wrapper-2.2",
-	"Cntk.ExtensibilityExamples-2.2",
-	"Cntk.Math-2.2",
-	"Cntk.PerformanceProfiler-2.2",
-	--"Cntk.Reader.Binary.Deprecated-2.2",
-	"Cntk.Reader.DSSM-2.2",
-	"Cntk.Reader.HTKMLF-2.2",
-	"Cntk.Reader.LMSequence-2.2",
-	"Cntk.Reader.LUSequence-2.2",
-	"Cntk.Reader.SparsePC-2.2",
-	"Cntk.Reader.SVMBinary-2.2",
-	"Cntk.Reader.UCIFast-2.2",
-}
-
-local cntk_libs_raw = {
-	"Cntk.Actions-2.2",
-	"Cntk.BinaryConvolutionExample-2.2",
-	"Cntk.Common-2.2",
-	"Cntk.Composite-2.2",
-	"Cntk.ComputationNetwork-2.2",
-	"Cntk.Core-2.2",
-	--"Cntk.Core.CSBinding-2.2",
-	--"Cntk.Core.JavaBinding-2.2",
-	"Cntk.Deserializers.Binary-2.2",
-	"Cntk.Deserializers.HTK-2.2",
-	"Cntk.Deserializers.Image-2.2",
-	"Cntk.Deserializers.TextFormat-2.2",
-	"Cntk.Eval-2.2",
-	--"Cntk.ExtensibilityExamples-2.2",
-	"Cntk.Math-2.2",
-	"Cntk.Math.Cuda-2.2",
-	"Cntk.PerformanceProfiler-2.2",
-	"Cntk.Reader-2.2",
-	--"Cntk.Reader.Binary.Deprecated-2.2",
-	"Cntk.Reader.DSSM-2.2",
-	"Cntk.Reader.HTKMLF-2.2",
-	"Cntk.Reader.LMSequence-2.2",
-	"Cntk.Reader.LUSequence-2.2",
-	"Cntk.Reader.SparsePC-2.2",
-	"Cntk.Reader.SVMBinary-2.2",
-	"Cntk.Reader.UCIFast-2.2",
-	"Cntk.SequenceTrainingLib-2.2",
-	"Cntk.SGD-2.2",
-}
-
-local cntk_deploy = {}
-for i, dll in ipairs(cntk_dlls_raw) do
-	cntk_deploy[#cntk_deploy + 1] = copyfile_to_output(cntk_bin .. dll .. "d.dll", winDebugFilter)
-	cntk_deploy[#cntk_deploy + 1] = copyfile_to_output(cntk_bin .. dll .. ".dll", winReleaseFilter)
-end
-
-cntk_deploy[#cntk_deploy + 1] = copyfile_to_output(cntk_bin .. "cublas64_80.dll", winFilter)
-cntk_deploy[#cntk_deploy + 1] = copyfile_to_output(cntk_bin .. "cudart64_80.dll", winFilter)
-cntk_deploy[#cntk_deploy + 1] = copyfile_to_output(cntk_bin .. "cudnn64_5.dll", winFilter)
-cntk_deploy[#cntk_deploy + 1] = copyfile_to_output(cntk_bin .. "curand64_80.dll", winFilter)
-cntk_deploy[#cntk_deploy + 1] = copyfile_to_output(cntk_bin .. "cusparse64_80.dll", winFilter)
-cntk_deploy[#cntk_deploy + 1] = copyfile_to_output(cntk_bin .. "nvml.dll", winFilter)
-cntk_deploy[#cntk_deploy + 1] = copyfile_to_output(cntk_bin .. "mkl_cntk_p.dll", winFilter) -- Used in CPU mode
-cntk_deploy[#cntk_deploy + 1] = copyfile_to_output(cntk_bin .. "libiomp5md.dll", winFilter) -- Used in CPU mode (used by mkl_cntk_p.dll)
-
-local cntk_libs = {}
-for i, lib in ipairs(cntk_libs_raw) do
-	cntk_libs[#cntk_libs + 1] = { lib .. "d.lib"; Config = winDebugFilter }
-	cntk_libs[#cntk_libs + 1] = { lib .. ".lib"; Config = winReleaseFilter }
-end
-
-local cntk = ExternalLibrary {
-	Name = "cntk",
-	Depends = cntk_deploy,
-	Propagate = {
-		Libs = cntk_libs,
-		Env = {
-			LIBPATH = {
-				{ "third_party/cntk/Windows/lib"; Config = "win64-*" },
-			}
-		}
-	}
-}
-
 local zlib = ExternalLibrary {
 	Name = "zlib",
 	Depends = {
@@ -496,46 +403,17 @@ local rpathLink = ExternalLibrary {
 
 }
 
--- See comment inside build/copy-libtorch-to-deps for the thinking around why we
--- choose to reference LibTorch from a 'deps' directory inside our source tree.
---local torch_root = "deps/torch" 
+-- Download libtorch from the official PyTorch website, and extract it into /usr/local/libtorch
+-- Version used here: 1.3.1
 local torch_root = "/usr/local/libtorch" 
 
---local deploy_libtorch_c10_cuda = copyfile_to_output(torch_root .. "/lib/libc10_cuda.so", linuxFilter)
---local deploy_libtorch_c10 = copyfile_to_output(torch_root .. "/lib/libc10.so", linuxFilter)
---local deploy_libtorch_caffe2 = copyfile_to_output(torch_root .. "/lib/libcaffe2.so", linuxFilter)
-----local deploy_libtorch_torch = copyfile_to_output(torch_root .. "/lib/libtorch.so", linuxFilter)
---local deploy_libtorch_torch = copyfile_to_output(torch_root .. "/lib/libtorch.so.1", linuxFilter)
-
--- This was an attempt to use the prebuilt binaries, but I gave when I discovered that they
--- are built with -D_GLIBCXX_USE_CXX11_ABI=0
---local deploy_libtorch_set = {}
---deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libc10_cuda.so", linuxFilter)
---deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libc10.so", linuxFilter)
---deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libcaffe2.so", linuxFilter)
---deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libcaffe2_gpu.so", linuxFilter)
---deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libtorch.so", linuxFilter)
---deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libtorch.so.1", linuxFilter)
---deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libgomp-8bba0e50.so.1", linuxFilter)
---deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libnvToolsExt-3965bdd0.so.1", linuxFilter)
---deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libcudart-1581fefa.so.10.0", linuxFilter)
-
--- This set of files references a from-source build of libtorch
 local deploy_libtorch_set = {}
 deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libc10_cuda.so", linuxFilter)
 deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libc10.so", linuxFilter)
-deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libcaffe2.so", linuxFilter)
-deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libcaffe2_gpu.so", linuxFilter)
 deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libtorch.so", linuxFilter)
-deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libtorch.so.1", linuxFilter)
-deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libmkl_intel_lp64.so", linuxFilter)
-deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libmkl_gnu_thread.so", linuxFilter)
-deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libmkl_core.so", linuxFilter)
-deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libmkl_vml_avx2.so", linuxFilter)
-deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libmkl_vml_def.so", linuxFilter)
-deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libmkl_avx2.so", linuxFilter)
-deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libmkl_def.so", linuxFilter)
-deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libnccl.so.2", linuxFilter)
+deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libgomp-753e6e92.so.1", linuxFilter)
+deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libnvToolsExt-3965bdd0.so.1", linuxFilter)
+deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libcudart-1b201d85.so.10.1", linuxFilter)
 
 local torch = ExternalLibrary {
 	Name = "torch",
@@ -543,15 +421,13 @@ local torch = ExternalLibrary {
 	Propagate = {
 		Env = {
 			LIBPATH = {
-				--{ "deps/torch/lib"; Config = linuxFilter },
 				{ torch_root .. "/lib"; Config = linuxFilter },
 			},
 		},
 		Libs = {
-			{ "torch", "caffe2", "c10", "c10_cuda", "nvrtc"; Config = linuxFilter },
+			{ "torch", "c10", "c10_cuda", "nvrtc"; Config = linuxFilter },
 		},
 		Includes = {
-			--"deps/torch/include",
 			torch_root .. "/include",
 			torch_root .. "/include/torch/csrc/api/include",
 		},
@@ -903,13 +779,17 @@ local gfx = StaticLibrary {
 	IdeGenerationHints = ideHintLibrary,
 }
 
+-- NOTE: Due to annoying patent/license issues, NVidia has to put nvcuvid behind some kind of download wall.
+-- It's free to get, but you have to register. To make builds easier, we embed the tiny nvcuvid
+-- include & library files inside third_party/nvcuvid.
 local CUDA = ExternalLibrary {
 	Name = "CUDA",
 	Propagate = {
 		Env = {
 			LIBPATH = {
 				{ "/usr/local/cuda/lib64",
-				  "/usr/lib/nvidia-396"; Config = linuxFilter },
+				  "/usr/lib/nvidia-396",
+				  "third_party/nvcuvid/Lib/linux/stubs/x86_64"; Config = linuxFilter },
 				{ "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v9.1/lib/x64"; Config = winFilter },
 			},
 			NVCCOPTS = {
@@ -919,7 +799,8 @@ local CUDA = ExternalLibrary {
 		},
 		Includes = {
 			{ "/usr/local/cuda/include",
-			  "/usr/include/nvidia-396/cuda"; Config = linuxFilter },
+			  "/usr/include/nvidia-396/cuda",
+			  "third_party/nvcuvid/include"; Config = linuxFilter },
 			{ '"$(CUDA_PATH)\\include"'; Config = winFilter },
 		},
 		Libs = { 
@@ -1012,25 +893,6 @@ local Train = SharedLibrary {
 	},
 	Sources = {
 		makeGlob("lib/Train", {}),
-	},
-	IdeGenerationHints = ideHintLibrary,
-}
-
-local AI = SharedLibrary {
-	Name = "AI",
-	Depends = {
-		winCrt, pal, tsf, cntk
-	},
-	PrecompiledHeader = {
-		Source = "lib/AI/pch.cpp",
-		Header = "pch.h",
-		Pass = "PchGen",
-	},
-	Includes = {
-		"lib/AI",
-	},
-	Sources = {
-		makeGlob("lib/AI", {}),
 	},
 	IdeGenerationHints = ideHintLibrary,
 }
