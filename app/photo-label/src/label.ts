@@ -267,6 +267,17 @@ export class ImageLabelSet {
 		return list;
 	}
 
+	// Returns true if there are any labels for the given dimension
+	anyLabelsForDimension(dim: string): boolean {
+		for (let r of this.regions) {
+			for (let labKey in r.labels) {
+				if (labKey === dim)
+					return true;
+			}
+		}
+		return false;
+	}
+
 	regionByID(id: number): LabelRegion | null {
 		for (let r of this.regions) {
 			if (r.regionID === id)

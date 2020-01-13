@@ -361,7 +361,7 @@ export class Draw {
 			}
 			if (this.state === State.None && this.dim !== null && this.activeLabelCategory !== '') {
 				this.state = State.NewPolygon;
-				this.isCreatingRectangle = this.isSemanticSegmentationDim && this.labels.regionsWithPolygons().length === 0;
+				this.isCreatingRectangle = this.isSemanticSegmentationDim && !this.labels.anyLabelsForDimension(this.dim.id);
 				this.curRegion = new LabelRegion();
 				this.curRegion.polygon = new Polygon();
 				this.curRegion.polygon.vx.push(clickPtWorld.clone());
