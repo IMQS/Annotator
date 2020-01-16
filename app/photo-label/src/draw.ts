@@ -212,7 +212,7 @@ export class Draw {
 				cx.stroke();
 			} else {
 				cx.strokeStyle = isDefined ? 'rgba(250,0,0,1)' : 'rgba(250,0,0,0.5)';
-				cx.fillStyle = isDefined ? 'rgba(250,0,0,0.1)' : 'rgba(250,0,0,0.05)';
+				cx.fillStyle = isDefined ? 'rgba(250,0,0,0.06)' : 'rgba(250,0,0,0.05)';
 				cx.fill();
 				cx.stroke();
 			}
@@ -352,6 +352,7 @@ export class Draw {
 				} else if (htObj !== null && htObj.distance < this.minClickPx && !htObj.region.polygon!.isRectangle) {
 					// Insert a new vertex on an edge
 					this.state = State.DragVertex;
+					this.isModifyingRectangle = false;
 					this.curRegion = htObj.region;
 					this.curRegion.polygon!.vx.splice(htObj.idx + 1, 0, clickPtWorld);
 					this.curDragIdx = htObj.idx + 1;

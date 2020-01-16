@@ -665,7 +665,7 @@ export default class Label extends Vue {
 .title {
 	flex: 1 0 auto;
 	font-size: 1.5rem;
-	margin-left: 1em;
+	margin-left: 5em;
 	//text-align: center;
 }
 .img {

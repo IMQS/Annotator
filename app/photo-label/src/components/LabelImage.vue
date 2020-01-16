@@ -71,8 +71,8 @@ export default class LabelImage extends Vue {
 }
 .bigIcon {
 	//opacity: 0.5;
-	max-width: 80px;
-	max-height: 80px;
+	max-width: 200px;
+	max-height: 120px;
 	display: inline;
 	position: absolute;
 	z-index: 999;
@@ -82,5 +82,6 @@ export default class LabelImage extends Vue {
 }
 .title {
 	font-size: 13px;
+	margin-left: 6em;
 }
 </style>

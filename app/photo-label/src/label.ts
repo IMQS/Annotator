@@ -199,19 +199,29 @@ export class ImageLabelSet {
 	}
 
 	/*
-	Example response from /api/db/get_labels:
+	Example response from /api/db/get_labels?image=2019/2019-03-17/115GOPRO/G0046139.JPG:
 	{
-		"regions": {
-			"0": {
-				"dims": {
-					"gravel_base_stones": "3"
-				}
-			},
-			"1": {
-				"region": "[[12,13,56,34,89,23]]",
-				"dims": {
-					"traffic_sign": "stop",
-					"traffic_sign_quality": "2",
+		"images": {
+			"2019/2019-03-17/115GOPRO/G0046139.JPG": {
+				"regions": {
+					"1": {
+						"dims": {
+							"tar_defects": {
+								"category": "none",
+								"intensity": 3.0
+							}
+						},
+						"region": "[[[604.16,1516.97,3072.52,1516.97,3072.52,2938.99,604.16,2938.99]]]"
+					},
+					"2": {
+						"dims": {
+							"tar_defects": {
+								"category": "crack",
+								"intensity": 3.0
+							}
+						},
+						"region": "[[[1097.31,2966.52,1136.45,2877.83,1201.68,2770.80,1259.08,2669.88,1339.97,2575.08,1426.07,2455.81,1478.26,2376.30,1647.86,2333.49,1893.13,2293.73,2026.20,2250.92,2161.89,2235.63,2214.07,2220.34,2193.20,2153.06,2083.61,2150.00,1976.63,2168.35,1809.63,2211.16,1689.61,2272.33,1556.54,2284.56,1420.85,2299.85,1371.28,2309.02,1253.86,2272.33,1157.32,2220.34,1094.70,2192.82,1047.73,2146.94,1047.73,2122.48,979.89,2088.84,919.88,2085.78,932.92,2137.77,995.54,2226.45,1037.29,2275.38,1146.88,2327.37,1230.38,2367.13,1321.70,2400.77,1306.05,2452.75,1222.55,2547.56,1154.71,2666.82,1089.48,2749.39,1037.29,2825.84,1039.90,2929.82,1021.64,2984.86]]]"
+					}
 				}
 			}
 		}
@@ -220,7 +230,13 @@ export class ImageLabelSet {
 
 	static fromJSON(j: any): ImageLabelSet {
 		let ls = new ImageLabelSet();
-		let jRegions = j.regions;
+		let jImages = j.images;
+		if (!jImages || Object.keys(jImages).length === 0)
+			return ls;
+		if (Object.keys(jImages).length > 1)
+			throw new Error('Expected a single element inside "images"');
+		let jImage = jImages[Object.keys(jImages)[0]];
+		let jRegions = jImage.regions;
 		if (!jRegions)
 			return ls;
 		ls.regions = [];

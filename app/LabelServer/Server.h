@@ -35,7 +35,6 @@ public:
 
 	Error Initialize(uberlog::Logger* log, std::string photoDir, std::string dimensionsFile);
 	void  ListenAndRun(int port = 8080);
-	Error Export(std::string exportDir);
 
 	static void SendJson(phttp::Response& w, const nlohmann::json& j);
 	static void SendFile(phttp::Response& w, std::string filename);

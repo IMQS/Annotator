@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "Server.h"
 #include "LabelDB.h"
+#include "Export.h"
 
 using namespace std;
 
@@ -33,7 +34,7 @@ int main(int argc, const char** argv) {
 	}
 
 	if (args.Has("export")) {
-		err = s.Export(args.Get("export"));
+		err = label::ExportWholeImages(s.DB, s.PhotoRoot, args.Get("export"));
 		if (!err.OK()) {
 			tsf::print("%v\n", err.Message());
 			return 1;

@@ -67,6 +67,22 @@
                 "title": "None (tar)",
                 "icon": "/tar-defects/none-tar.jpg"
             },
+            "not-road": {
+                "title": "Other (cars, sky, trees, etc)",
+                "icon": "/tar-defects/not-road.jpg"
+            },
+            "brick": {
+                "title": "Bricks",
+                "icon": "/tar-defects/bricks.jpg"
+            },
+            "curb": {
+                "title": "Curb",
+                "icon": "/tar-defects/curb.jpg"
+            },
+            "utility-cut": {
+                "title": "Utility Cut",
+                "icon": "/tar-defects/utility-cut.jpg"
+            },
             "crack": {
                 "title": "Cracks (other)",
                 "icon": "/tar-defects/cracks.jpg",
@@ -101,9 +117,9 @@
                 ],
                 "hasIntensity": true
             },
-            "surf-crack": {
-                "title": "Surface Crack",
-                "icon": "/tar-defects/transverse-crack.jpg",
+            "surf-failure": {
+                "title": "Surface Failure",
+                "icon": "/tar-defects/surface-failure.jpg",
                 "implies": [
                     "crack"
                 ],
