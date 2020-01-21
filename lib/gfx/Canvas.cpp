@@ -205,6 +205,30 @@ void Canvas::FillPoly(int nvx, const float* vx, int vx_stride_bytes, Color8 colo
 	RenderScanlines();
 }
 
+void Canvas::StrokePoly(bool closed, int nvx, const float* vx, int vx_stride_bytes, Color8 color, float linewidth) {
+	if (!IsAlive)
+		return;
+
+	RasAA.reset();
+	agg::path_storage path;
+	path.start_new_path();
+	path.move_to(vx[0], vx[1]);
+	(char*&) vx += vx_stride_bytes;
+	for (int i = 1; i < nvx; i++) {
+		path.line_to(vx[0], vx[1]);
+		(char*&) vx += vx_stride_bytes;
+	}
+	if (closed)
+		path.close_polygon();
+
+	agg::conv_stroke<agg::path_storage> stroked(path);
+	stroked.width(linewidth);
+
+	RasAA.add_path(stroked);
+	RenderAA_RGBA.color(ColorToAggS8(color));
+	RenderScanlines();
+}
+
 /*
 void Canvas::RenderSVG(const char* svg) {
 	try {

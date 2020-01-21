@@ -13,6 +13,7 @@ read from WKT.
 */
 class IMQS_DBA_API CSV : public FlatFile {
 public:
+	std::vector<char>          ValidSeparators; // All of these separators are attempted, when opening the file (eg comma, tab)
 	os::MMapFile               File;
 	std::vector<schema::Field> CachedFields;
 	std::string                Buf;
@@ -22,6 +23,7 @@ public:
 	std::vector<int64_t>       RecordStarts;
 	bool                       ReadFieldTypesOnOpen = true; // If true, then figure out field types by scanning the entire file during Open()
 
+	CSV();
 	Error                      Open(const std::string& filename, bool create) override;
 	int64_t                    RecordCount() override;
 	std::vector<schema::Field> Fields() override;
@@ -32,6 +34,7 @@ private:
 
 	Error ReadFields();
 	Error ReadRecordStarts();
+	Error AutoDiscoverSeparatorType();
 };
 
 } // namespace dba

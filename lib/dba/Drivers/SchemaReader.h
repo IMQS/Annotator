@@ -21,6 +21,9 @@ like that, then the following pattern should work well enough:
 * Produce your own filtered list of tables that you're really interested in.
 * Read just that filtered list, this time including the Fields and Indexes flags.
 
+If you want to read only a few tables inside a specific tableSpace, then specify that inside restrictTables.
+For example: ["water.pipes", "water.nodes"], to read only those two tables inside the "water" schema.
+
 */
 class IMQS_DBA_API SchemaReader {
 public:
@@ -31,10 +34,10 @@ public:
 
 	// Read the tables, fields, indexes, etc.
 	// If restrictTables is not null, then limit the query to only those tables specified.
-	virtual Error ReadSchema(uint32_t readFlags, Executor* ex, std::string tableSpace, schema::DB& db, const std::vector<std::string>* restrictTables) = 0;
+	virtual Error ReadSchema(uint32_t readFlags, Executor* ex, schema::DB& db, const std::vector<std::string>* restrictTables, std::string tableSpace) = 0;
 
 	// Start a transaction, then read the schema inside that transaction
-	Error ReadSchemaInTx(uint32_t readFlags, Conn* con, std::string tableSpace, schema::DB& db, const std::vector<std::string>* restrictTables);
+	Error ReadSchemaInTx(uint32_t readFlags, Conn* con, schema::DB& db, const std::vector<std::string>* restrictTables, std::string tableSpace);
 };
-}
-}
+} // namespace dba
+} // namespace imqs

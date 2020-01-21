@@ -34,6 +34,8 @@ void Global::Initialize() {
 	ASTCache = new sqlparser::ASTCache();
 
 	MemPool::Initialize();
+	// Note: Driver names must be more than 1 character long, otherwise they will be confused with
+	// drive letters on Windows, inside ConnDesc::Parse().
 	RegisterDriver("postgres", new PostgresDriver());
 	RegisterDriver("sqlite3", new SqliteDriver());
 #if !defined(IMQS_DBA_EXCLUDE_SQLAPI)
@@ -136,7 +138,7 @@ Error Global::OpenFlatFile(const std::string& filename, bool create, FlatFile*& 
 	auto err = file->Open(filename, create);
 	if (!err.OK()) {
 		delete file;
-		return err;
+		return Error::Fmt("while opening file %s: %s", filename, err.Message());
 	}
 	return Error();
 }

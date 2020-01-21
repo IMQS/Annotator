@@ -249,6 +249,19 @@ void PackedColumn::Set(size_t i, const Attrib& val) {
 }
 
 void PackedColumn::SetType(dba::Type type) {
+	if (_Type != dba::Type::Null) {
+		if (Size() == 0) {
+			// allow re-initialization to any other type, because PackedColumn is empty
+			Clear();
+		} else if (IsTypeGeom(_Type) && type == Type::GeomAny) {
+			// Once the type has been set, and data has been added,
+			// the only legal change of type is from Geom____ to GeomAny.
+			_Type = type;
+			return;
+		} else {
+			IMQS_DIE();
+		}
+	}
 	_Type = type;
 
 	size_t staticSize = 0;

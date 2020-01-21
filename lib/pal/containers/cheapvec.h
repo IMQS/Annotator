@@ -431,7 +431,7 @@ inline void swap(imqs::cheapvec<T>& a, imqs::cheapvec<T>& b) {
 	memcpy(&a, &b, sizeof(a));
 	memcpy(&b, tmp, sizeof(a));
 }
-}
+} // namespace std
 
 #ifdef _MSC_VER
 #pragma warning(pop)

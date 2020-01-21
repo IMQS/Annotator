@@ -16,7 +16,8 @@ typedef int32_t  hashkey_t;   // Key type of hash tables. Should probably be uin
 typedef uint32_t hashsize_t;  // Size type of hash tables
 typedef uint8_t  hashstate_t; // State array type
 
-static const hashsize_t npos = (hashsize_t) -1;
+static const hashsize_t npos  = (hashsize_t) -1;
+static const uint32_t   mixer = 0x01000193; // same prime number as FNV1a
 
 inline hashsize_t next_power_of_2(hashsize_t v) {
 	hashsize_t s = 1;
@@ -200,7 +201,11 @@ inline hashkey_t gethashcode(const int32_t& k) {
 }
 template <>
 inline hashkey_t gethashcode(const int64_t& k) {
-	return (hashkey_t)((uint32_t) k ^ (uint32_t)((uint64_t) k >> 32));
+	// We mix the high half before XORing with the low half, to avoid bad behaviour
+	// when the high and low halves are correlated (eg X,Y coordinates).
+	uint32_t low  = (uint32_t) k;
+	uint32_t high = (uint32_t)((uint64_t) k >> 32);
+	return low ^ (high * 0x01000193);
 }
 template <>
 inline hashkey_t gethashcode(const uint8_t& k) {
@@ -216,7 +221,11 @@ inline hashkey_t gethashcode(const uint32_t& k) {
 }
 template <>
 inline hashkey_t gethashcode(const uint64_t& k) {
-	return (hashkey_t)((uint32_t) k ^ (uint32_t)(k >> 32));
+	// We mix the high half before XORing with the low half, to avoid bad behaviour
+	// when the high and low halves are correlated (eg X,Y coordinates).
+	uint32_t low  = (uint32_t) k;
+	uint32_t high = (uint32_t)(k >> 32);
+	return low ^ (high * 0x01000193);
 }
 
 // I make a copy here in an attempt to prevent the compiler from thinking that it actually needs
@@ -292,6 +301,6 @@ public:
 	static const TKey& getkey(const TKey& data) { return data; }
 	static bool        equals(const TKey& a, const TKey& b) { return strcmp(a, b) == 0; }
 };
-}
+} // namespace ohash
 
 #endif

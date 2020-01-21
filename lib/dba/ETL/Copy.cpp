@@ -100,7 +100,7 @@ IMQS_DBA_API Error CopyTable(Executor* srcExec, std::string srcTable, const Copy
 	return Error();
 }
 
-IMQS_DBA_API Error CreateTableFromFlatFile(FlatFile* src, Conn* dst, Tx* tx, std::string dstTableSpace, std::string dstTable, CreateTableFromFlatFileFlags flags) {
+IMQS_DBA_API Error CreateTableFromFlatFile(FlatFile* src, Conn* dst, Tx* tx, std::string dstTable, CreateTableFromFlatFileFlags flags) {
 	auto writer = dst->SchemaWriter();
 	if (!writer)
 		return Error("Driver doesn't support SchemaWriter");
@@ -123,7 +123,7 @@ IMQS_DBA_API Error CreateTableFromFlatFile(FlatFile* src, Conn* dst, Tx* tx, std
 				f.SRID = geom::SRID_WGS84LatLonDegrees;
 		}
 	}
-	auto err = writer->CreateTable(ex, dstTableSpace, dstTable, fields.size(), &fields[0], pkeys);
+	auto err = writer->CreateTable(ex, dstTable, fields.size(), &fields[0], pkeys);
 	if (!err.OK())
 		return err;
 
@@ -133,7 +133,7 @@ IMQS_DBA_API Error CreateTableFromFlatFile(FlatFile* src, Conn* dst, Tx* tx, std
 				schema::Index idx;
 				idx.Fields.push_back(f.Name);
 				idx.IsSpatial = true;
-				err |= writer->CreateIndex(ex, dstTableSpace, dstTable, idx);
+				err |= writer->CreateIndex(ex, dstTable, idx);
 			}
 		}
 	}

@@ -157,6 +157,8 @@ inline const char* FieldTypeToString(Type ft, TypeFlags typeFlags = TypeFlags::N
 	}
 }
 
+// Geometry Flags.
+// These flags are stored inside Attrib.Value.Geom.Flags
 enum class GeomFlags : uint32_t {
 	None   = 0,
 	Double = 1, // You must pick either Double or Float
@@ -212,6 +214,7 @@ enum class SqlDialectFlags : uint64_t {
 	Int16                        = 256,  // DB has a 16-bit integer type (signed)
 	Float                        = 512,  // DB has a float32 type
 	JSONB                        = 1024, // DB has a JSONB type
+	NamedSchemas                 = 2048, // DB has named schemas
 };
 
 inline SqlDialectFlags operator|(SqlDialectFlags a, SqlDialectFlags b) { return (SqlDialectFlags)((uint64_t) a | (uint64_t) b); }

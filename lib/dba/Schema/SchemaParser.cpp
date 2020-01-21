@@ -107,6 +107,7 @@ static const char SuffixTableJoinChar = '_';
 	char                     Err[256];        \
 	char                     FieldGroup[256]; \
 	DB*                      Out;             \
+	TableSpace*              cTableSpace;     \
 	Table*                   cTable;          \
 	Field*                   cField;          \
 	FieldXData               cField_XD;       \
@@ -139,6 +140,8 @@ static void relation_local_field(yycontext* yy, const char* t);
 static void relation_foreign_field(yycontext* yy, const char* t);
 static void field_xdata_value(yycontext* yy, const char* t);
 static void field_xdata_key(yycontext* yy, const char* t);
+static void begin_tablespace(yycontext* yy);
+static void tablespace_name(yycontext* yy, const char* t);
 static void begin_table(yycontext* yy);
 static void table_name(yycontext* yy, const char* t);
 static void suffix_table_start(yycontext* yy);
@@ -157,7 +160,7 @@ static void version(yycontext* yy, const char* t);
 
 #ifdef _MSC_VER
 #pragma warning(push)
-#pragma warning(disable : 6244 6308 6011 28183)
+#pragma warning(disable : 6244 6308 6011 28182 28183)
 #pragma warning(disable : 4551) // function call missing argument list.. I dunno why leg injects these, but they are unreachable code
 #endif
 
@@ -403,6 +406,15 @@ static void field_xdata_value(yycontext* yy, const char* value) {
 	case FieldXData::Null:
 		break;
 	}
+}
+
+static void begin_tablespace(yycontext* yy) {
+	yy->cTableSpace = new TableSpace();
+}
+
+static void tablespace_name(yycontext* yy, const char* ts) {
+	yy->cTableSpace->SetName(ts);
+	yy->Out->InsertOrReplaceTableSpace(yy->cTableSpace);
 }
 
 static void begin_table(yycontext* yy) {
@@ -776,6 +788,7 @@ IMQS_DBA_API Error SchemaParse(const char* txt, DB& db) {
 
 	yy.Success       = false;
 	yy.Input         = txt;
+	yy.cTableSpace   = nullptr;
 	yy.cTable        = nullptr;
 	yy.cField        = nullptr;
 	yy.cRelation     = nullptr;
@@ -854,6 +867,7 @@ IMQS_DBA_API const char* FieldTypeToSchemaFileType(const Field& f) {
 	case Type::Date: return "datetime";
 	case Type::Time: return "time";
 	case Type::Bin: return "bin";
+	case Type::JSONB: return "jsonb";
 	case Type::GeomPoint: return zm ? "pointzm" : (z ? "pointz" : (m ? "pointm" : "point"));
 	case Type::GeomMultiPoint: return zm ? "multipointzm" : (z ? "multipointz" : (m ? "multipointm" : "multipoint"));
 	case Type::GeomPolyline: return zm ? "polylinezm" : (z ? "polylinez" : (m ? "polylinem" : "polyline"));

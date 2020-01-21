@@ -11,35 +11,43 @@ SchemaDiffWriter::SchemaDiffWriter(dba::SchemaWriter* writer, dba::Executor* ex)
 	Ex     = ex;
 }
 
-Error SchemaDiffWriter::CreateTable(std::string tableSpace, const dba::schema::Table& table) {
-	return Writer->CreateTable(Ex, tableSpace, table);
+Error SchemaDiffWriter::CreateTableSpace(const dba::schema::TableSpace& ts) {
+	return Writer->CreateTableSpace(Ex, ts);
 }
 
-Error SchemaDiffWriter::CreateField(std::string tableSpace, std::string table, const dba::schema::Field& field) {
-	return Writer->AddField(Ex, tableSpace, table, field);
+Error SchemaDiffWriter::CreateTable(const dba::schema::Table& table) {
+	return Writer->CreateTable(Ex, table);
 }
 
-Error SchemaDiffWriter::CreateIndex(std::string tableSpace, std::string table, const dba::schema::Index& idx) {
-	return Writer->CreateIndex(Ex, tableSpace, table, idx);
+Error SchemaDiffWriter::CreateField(std::string table, const dba::schema::Field& field) {
+	return Writer->AddField(Ex, table, field);
 }
 
-Error SchemaDiffWriter::AlterFieldType(std::string tableSpace, std::string table, const dba::schema::Field& field) {
+Error SchemaDiffWriter::CreateIndex(std::string table, const dba::schema::Index& idx) {
+	return Writer->CreateIndex(Ex, table, idx);
+}
+
+Error SchemaDiffWriter::AlterFieldType(std::string table, const dba::schema::Field& field) {
 	return Error("AlterFieldType is not supported by SchemaDiffWriter");
 }
 
-Error SchemaDiffWriter::AlterFieldName(std::string tableSpace, std::string table, std::string oldName, std::string newName) {
+Error SchemaDiffWriter::AlterFieldName(std::string table, std::string oldName, std::string newName) {
 	return Error("AlterFieldName is not supported by SchemaDiffWriter");
 }
 
-Error SchemaDiffWriter::DropTable(std::string tableSpace, std::string table) {
-	return Writer->DropTable(Ex, tableSpace, table);
+Error SchemaDiffWriter::DropTableSpace(std::string ts) {
+	return Writer->DropTableSpace(Ex, ts);
 }
 
-Error SchemaDiffWriter::DropField(std::string tableSpace, std::string table, std::string field) {
-	return Writer->DropField(Ex, tableSpace, table, field);
+Error SchemaDiffWriter::DropTable(std::string table) {
+	return Writer->DropTable(Ex, table);
 }
 
-Error SchemaDiffWriter::DropIndex(std::string tableSpace, std::string table, const dba::schema::Index& idx) {
+Error SchemaDiffWriter::DropField(std::string table, std::string field) {
+	return Writer->DropField(Ex, table, field);
+}
+
+Error SchemaDiffWriter::DropIndex(std::string table, const dba::schema::Index& idx) {
 	return Error("DropIndex is not supported by SchemaDiffWriter");
 }
 

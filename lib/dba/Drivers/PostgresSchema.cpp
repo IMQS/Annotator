@@ -7,6 +7,8 @@
 #include "../Schema/DB.h"
 #include "../CrudOps.h"
 
+using namespace std;
+
 namespace imqs {
 namespace dba {
 
@@ -16,10 +18,7 @@ static const char* StrValOrEmpty(const Attrib& a) {
 	return "";
 }
 
-Error PostgresSchemaReader::ReadSchema(uint32_t readFlags, Executor* ex, std::string tableSpace, schema::DB& db, const std::vector<std::string>* restrictTables) {
-	if (tableSpace == "")
-		tableSpace = PostgresDriver::DefaultTableSpace;
-
+Error PostgresSchemaReader::ReadSchema(uint32_t readFlags, Executor* ex, schema::DB& db, const std::vector<std::string>* restrictTables, std::string tableSpace) {
 	// If we don't exit early in this case, then we end up producing invalid SQL queries
 	if (restrictTables && restrictTables->size() == 0)
 		return Error();
@@ -37,32 +36,52 @@ Error PostgresSchemaReader::ReadSchema(uint32_t readFlags, Executor* ex, std::st
 
 	ohash::map<uint64_t, uint32_t> fieldNumToIndex; // (table_oid << 32) | (field_attnum) => (field index inside schema::Table::Fields, 1-based)
 
-	SqlStr s = ex->Sql();
-	s.Fmt(
-	    "SELECT c.oid, c.relname, c.relkind FROM pg_class c, pg_namespace n WHERE"
-	    "(c.relkind = 'r' OR c.relkind = 'v' OR c.relkind = 'm') AND "
-	    "(c.relnamespace = n.oid) AND "
-	    "(n.nspname = %q)",
-	    tableSpace);
+	// Detect if PostGIS is installed
+	string postGISVersion;
+	CrudOps::Query(ex, "SELECT extversion FROM pg_catalog.pg_extension WHERE extname='postgis'", postGISVersion);
+	bool hasPostGIS = postGISVersion != "";
 
+	// Split restrictTables into "schema.name" pairs
+	vector<pair<string, string>> restrictPairs;
 	if (restrictTables != nullptr) {
-		s += " AND (c.relname in (";
-		for (const auto& t : *restrictTables) {
-			s.Squote(t);
-			s += ",";
+		for (size_t i = 0; i < restrictTables->size(); i++) {
+			const auto& t   = (*restrictTables)[i];
+			size_t      dot = t.find('.');
+			if (dot != -1)
+				restrictPairs.push_back({t.substr(0, dot), t.substr(dot + 1)});
+			else
+				restrictPairs.push_back({PostgresDriver::DefaultTableSpace, t.substr(dot + 1)});
 		}
-		if (restrictTables->size() != 0)
-			s.Chop();
+	}
+
+	SqlStr s = ex->Sql();
+	s += "SELECT c.oid, n.nspname, c.relname, c.relkind FROM pg_class c, pg_namespace n WHERE"
+	     "(c.relkind = 'r' OR c.relkind = 'v' OR c.relkind = 'm') AND "
+	     "(c.relnamespace = n.oid)";
+
+	if (restrictTables == nullptr) {
+		// limit to the specific schema, or "public" if none specified
+		s.Fmt(" AND (n.nspname = %q)", tableSpace != "" ? tableSpace : PostgresDriver::DefaultTableSpace);
+	} else {
+		// limit to the exact tables requested
+		s += " AND ((n.nspname, c.relname) in (";
+		for (const auto& p : restrictPairs) {
+			s.Fmt("(%q, %q),", p.first, p.second);
+		}
+		s.Chop();
 		s += "))";
 	}
-	Rows rows = ex->Query(s);
+
+	auto rows = ex->Query(s);
 	for (auto row : rows) {
-		const auto& oid  = row[0];
-		const auto& name = row[1];
-		const auto& kind = row[2];
-		if (!(oid.IsNumeric() && name.IsText() && kind.IsText()))
+		const auto& oid    = row[0];
+		const auto& tspace = row[1];
+		const auto& name   = row[2];
+		const auto& kind   = row[3];
+		if (!(oid.IsNumeric() && tspace.IsText() && name.IsText() && kind.IsText()))
 			continue;
 
+		auto tspaceStr  = tspace.ToString(); // usually "public", but maybe "water", "sewer", etc
 		auto nameStr    = name.ToString();
 		auto isInternal = false;
 		if (nameStr == "spatial_ref_sys" ||
@@ -72,8 +91,8 @@ Error PostgresSchemaReader::ReadSchema(uint32_t readFlags, Executor* ex, std::st
 		    nameStr == "raster_overviews") {
 			isInternal = true;
 		}
-		if (tableSpace != PostgresDriver::DefaultTableSpace)
-			nameStr = tableSpace + "." + nameStr;
+		if (tspaceStr != PostgresDriver::DefaultTableSpace)
+			nameStr = tspaceStr + "." + nameStr;
 
 		auto kindStr = kind.ToString();
 		auto tab     = db.TableByName(nameStr, true);
@@ -90,7 +109,8 @@ Error PostgresSchemaReader::ReadSchema(uint32_t readFlags, Executor* ex, std::st
 	if (!rows.OK())
 		return rows.Err();
 
-	// exit early if there are no tables, which will happen if restrictTables has only non-existent tables inside it.
+	// exit early if there are no tables, which will happen if restrictTables has only non-existent tables inside it,
+	// or you're reading from an empty schema
 	if (tableToOid.size() == 0)
 		return Error();
 
@@ -109,7 +129,7 @@ Error PostgresSchemaReader::ReadSchema(uint32_t readFlags, Executor* ex, std::st
 			s.Chop();
 		s += ") ORDER BY a.attrelid, a.attnum";
 
-		rows                        = std::move(ex->Query(s));
+		rows                        = ex->Query(s);
 		int32_t        lastTableOid = -1;
 		schema::Table* table        = nullptr;
 		for (auto row : rows) {
@@ -138,70 +158,78 @@ Error PostgresSchemaReader::ReadSchema(uint32_t readFlags, Executor* ex, std::st
 		if (!rows.OK())
 			return rows.Err();
 
-		// Geometry fields
-		std::vector<schema::Table*> geomTables;
-		s.Clear();
-		s += "SELECT f_table_name, f_geometry_column, coord_dimension, srid, type FROM geometry_columns";
-		s.Fmt(" WHERE f_table_schema = %q", tableSpace);
-		if (restrictTables) {
-			s += " AND f_table_name IN (";
-			for (const auto& t : *restrictTables) {
-				s.Squote(t);
-				s += ",";
-			}
-			if (restrictTables->size() != 0)
-				s.Chop();
-			s += ")";
-		}
-		rows = ex->Query(s);
-		for (auto row : rows) {
-			const auto& tabName   = row[0];
-			const auto& fieldName = row[1];
-			const auto& dims      = row[2];
-			const auto& srid      = row[3];
-			const auto& type      = row[4];
-			auto        tab       = db.TableByName(StrValOrEmpty(tabName));
-			if (!tab)
-				continue;
-			auto field = tab->FieldByName(StrValOrEmpty(fieldName));
-			if (!field)
-				continue;
-			field->SRID = srid.ToInt32();
-			DecodeGeomType(*field, dims, type);
-			geomTables.push_back(tab);
-		}
-		if (!rows.OK())
-			return rows.Err();
-
-		// Map from DB SRID to projwrap SRID, which are identical when the SRID is an EPSG code,
-		// but different for custom coordinate systems.
-		// This might introduce a problem when trying to insert data into this table. I'm hoping
-		// we can just leave the SRID unspecified for that case.
-		ohash::map<int, int> sridMap;
-
-		for (auto tab : geomTables) {
-			for (auto& field : tab->Fields) {
-				if (!(field.IsTypeGeom() && field.SRID != 0))
-					continue;
-				int dbSRID = field.SRID;
-				if (!sridMap.contains(dbSRID)) {
-					if (projwrap::FindEPSG(dbSRID)) {
-						// For EPSG codes, we maintain the SRID
-						sridMap.insert(dbSRID, dbSRID);
-						continue;
-					}
-					// For non-EPSG codes, we get a unique negative number from projwrap, which is valid for the duration of the program
-					std::string proj;
-					auto        err = CrudOps::Query(ex, "SELECT proj4text FROM spatial_ref_sys WHERE srid = $1", {dbSRID}, proj);
-					// Not sure this should be a fatal error, but where else do we report it?
-					if (!err.OK())
-						return Error::Fmt("Coordinate system %v, of table %v, not found in database (error %v)", dbSRID, tab->GetName(), err.Message());
-					sridMap.insert(dbSRID, projwrap::RegisterCustomSRID(proj.c_str()));
+		if (hasPostGIS) {
+			// Geometry fields
+			std::vector<schema::Table*> geomTables;
+			s.Clear();
+			s += "SELECT f_table_schema, f_table_name, f_geometry_column, coord_dimension, srid, type FROM geometry_columns";
+			if (restrictTables) {
+				s += " WHERE (f_table_schema, f_table_name) IN (";
+				for (const auto& p : restrictPairs) {
+					s.Fmt("(%q, %q),", p.first, p.second);
 				}
-				field.SRID = sridMap.get(dbSRID);
+				s.Chop();
+				s += ")";
+			} else {
+				s.Fmt(" WHERE f_table_schema = %q", tableSpace != "" ? tableSpace : PostgresDriver::DefaultTableSpace);
 			}
-		}
-	} // fields
+
+			rows = ex->Query(s);
+			for (auto row : rows) {
+				const auto&    tsName    = row[0];
+				const auto&    tabName   = row[1];
+				const auto&    fieldName = row[2];
+				const auto&    dims      = row[3];
+				const auto&    srid      = row[4];
+				const auto&    type      = row[5];
+				schema::Table* tab       = nullptr;
+				if (tsName == PostgresDriver::DefaultTableSpace)
+					tab = db.TableByName(StrValOrEmpty(tabName));
+				else
+					tab = db.TableByName(tsName.ToString() + "." + StrValOrEmpty(tabName));
+
+				if (!tab)
+					continue;
+				auto field = tab->FieldByName(StrValOrEmpty(fieldName));
+				if (!field)
+					continue;
+				field->SRID = srid.ToInt32();
+				DecodeGeomType(*field, dims, type);
+				geomTables.push_back(tab);
+			}
+			if (!rows.OK())
+				return rows.Err();
+
+			// Map from DB SRID to projwrap SRID, which are identical when the SRID is an EPSG code,
+			// but different for custom coordinate systems.
+			// This might introduce a problem when trying to insert data into this table. I'm hoping
+			// we can just leave the SRID unspecified for that case.
+			ohash::map<int, int> sridMap;
+
+			for (auto tab : geomTables) {
+				for (auto& field : tab->Fields) {
+					if (!(field.IsTypeGeom() && field.SRID != 0))
+						continue;
+					int dbSRID = field.SRID;
+					if (!sridMap.contains(dbSRID)) {
+						if (projwrap::FindEPSG(dbSRID)) {
+							// For EPSG codes, we maintain the SRID
+							sridMap.insert(dbSRID, dbSRID);
+							continue;
+						}
+						// For non-EPSG codes, we get a unique negative number from projwrap, which is valid for the duration of the program
+						std::string proj;
+						auto        err = CrudOps::Query(ex, "SELECT proj4text FROM spatial_ref_sys WHERE srid = $1", {dbSRID}, proj);
+						// Not sure this should be a fatal error, but where else do we report it?
+						if (!err.OK())
+							return Error::Fmt("Coordinate system %v, of table %v, not found in database (error %v)", dbSRID, tab->GetName(), err.Message());
+						sridMap.insert(dbSRID, projwrap::RegisterCustomSRID(proj.c_str()));
+					}
+					field.SRID = sridMap.get(dbSRID);
+				}
+			}
+		} // if hasPostGIS
+	}     // fields
 
 	// Read indexes
 	if (!!(readFlags & ReadFlagIndexes)) {
@@ -305,7 +333,7 @@ void PostgresSchemaReader::DecodeField(schema::Field& f, const Attrib& name, con
 	else if (strcmp(dtype, "JSONB") == 0)                          f.Type = Type::JSONB;
 	else
 	{
-		// this line left here for breakpoint settability
+		// this line left here so that you can set a breakpoint on it
 		f.Type = Type::Null;
 	}
 	// clang-format on
@@ -359,19 +387,26 @@ void PostgresSchemaReader::DecodeGeomType(schema::Field& f, const Attrib& dims, 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Error PostgresSchemaWriter::DropTable(Executor* ex, std::string tableSpace, const std::string& table) {
-	if (tableSpace == "")
-		tableSpace = PostgresDriver::DefaultTableSpace;
-
+Error PostgresSchemaWriter::DropTableSpace(Executor* ex, const std::string& ts) {
 	auto s = ex->Sql();
-	s.Fmt("DROP TABLE %Q.%Q", tableSpace, table);
+	s.Fmt("DROP SCHEMA %Q", ts);
 	return ex->Exec(s);
 }
 
-Error PostgresSchemaWriter::CreateTable(Executor* ex, std::string tableSpace, const schema::Table& table) {
+Error PostgresSchemaWriter::CreateTableSpace(Executor* ex, const schema::TableSpace& ts) {
 	auto s = ex->Sql();
-	if (tableSpace == "")
-		tableSpace = PostgresDriver::DefaultTableSpace;
+	s.Fmt("CREATE SCHEMA %Q", ts.GetName());
+	return ex->Exec(s);
+}
+
+Error PostgresSchemaWriter::DropTable(Executor* ex, const std::string& table) {
+	auto s = ex->Sql();
+	s.Fmt("DROP TABLE %Q", table);
+	return ex->Exec(s);
+}
+
+Error PostgresSchemaWriter::CreateTable(Executor* ex, const schema::Table& table) {
+	auto s = ex->Sql();
 
 	if (table.IsView() || table.IsMaterializedView())
 		return Error("Views are not implemented in PostgresSchemaWriter");
@@ -379,7 +414,7 @@ Error PostgresSchemaWriter::CreateTable(Executor* ex, std::string tableSpace, co
 	if (table.IsTemp())
 		s.Fmt("CREATE TEMP TABLE %Q (", table.GetName());
 	else
-		s.Fmt("CREATE TABLE %Q.%Q (", tableSpace, table.GetName());
+		s.Fmt("CREATE TABLE %Q (", table.GetName());
 
 	CreateTable_Fields(s, table);
 	s += ")";
@@ -388,19 +423,17 @@ Error PostgresSchemaWriter::CreateTable(Executor* ex, std::string tableSpace, co
 	if (!err.OK())
 		return err;
 
-	err = CreateTable_Indexes(ex, tableSpace, table);
+	err = CreateTable_Indexes(ex, table);
 	if (!err.OK())
 		return err;
 
 	return Error();
 }
 
-Error PostgresSchemaWriter::CreateIndex(Executor* ex, std::string tableSpace, const std::string& table, const schema::Index& idx) {
+Error PostgresSchemaWriter::CreateIndex(Executor* ex, const std::string& table, const schema::Index& idx) {
 	auto s = ex->Sql();
-	if (tableSpace == "")
-		tableSpace = PostgresDriver::DefaultTableSpace;
 
-	s.Fmt("CREATE %v INDEX ON %Q.%Q %v (", idx.IsUnique ? "UNIQUE" : "", tableSpace, table, idx.IsSpatial ? "USING GIST" : "");
+	s.Fmt("CREATE %v INDEX ON %Q %v (", idx.IsUnique ? "UNIQUE" : "", table, idx.IsSpatial ? "USING GIST" : "");
 	for (const auto& f : idx.Fields) {
 		s.Identifier(f, true);
 		s += ",";
@@ -411,10 +444,8 @@ Error PostgresSchemaWriter::CreateIndex(Executor* ex, std::string tableSpace, co
 	return ex->Exec(s);
 }
 
-Error PostgresSchemaWriter::AddField(Executor* ex, std::string tableSpace, const std::string& table, const schema::Field& field) {
+Error PostgresSchemaWriter::AddField(Executor* ex, const std::string& table, const schema::Field& field) {
 	auto s = ex->Sql();
-	if (tableSpace == "")
-		tableSpace = PostgresDriver::DefaultTableSpace;
 
 	s.Fmt("ALTER TABLE %Q ADD COLUMN %Q ", table, field.Name);
 	s.FormatType(field.Type, field.IsTypeGeom() ? field.SRID : field.Width, field.Flags);
@@ -424,23 +455,19 @@ Error PostgresSchemaWriter::AddField(Executor* ex, std::string tableSpace, const
 	return ex->Exec(s);
 }
 
-Error PostgresSchemaWriter::AlterField(Executor* ex, std::string tableSpace, const std::string& table, const schema::Field& srcField, const schema::Field& dstField) {
+Error PostgresSchemaWriter::AlterField(Executor* ex, const std::string& table, const schema::Field& existing, const schema::Field& target) {
 	auto s = ex->Sql();
-	if (tableSpace == "")
-		tableSpace = PostgresDriver::DefaultTableSpace;
 
-	s.Fmt("ALTER TABLE %Q ALTER COLUMN %Q TYPE ", table, dstField.Name);
-	s.FormatType(srcField.Type, srcField.IsTypeGeom() ? srcField.SRID : srcField.Width, srcField.Flags);
-	if (srcField.NotNull())
+	s.Fmt("ALTER TABLE %Q ALTER COLUMN %Q TYPE ", table, existing.Name);
+	s.FormatType(target.Type, target.IsTypeGeom() ? target.SRID : target.Width, target.Flags);
+	if (target.NotNull())
 		s += " NOT NULL";
 
 	return ex->Exec(s);
 }
 
-Error PostgresSchemaWriter::DropField(Executor* ex, std::string tableSpace, const std::string& table, const std::string& field) {
+Error PostgresSchemaWriter::DropField(Executor* ex, const std::string& table, const std::string& field) {
 	auto s = ex->Sql();
-	if (tableSpace == "")
-		tableSpace = PostgresDriver::DefaultTableSpace;
 
 	s.Fmt("ALTER TABLE %Q DROP COLUMN %Q ", table, field);
 

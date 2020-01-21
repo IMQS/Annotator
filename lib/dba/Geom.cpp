@@ -109,6 +109,40 @@ IMQS_DBA_API double Distance2D(const Attrib& g1, const Attrib& g2) {
 	return DBL_MAX;
 }
 
+IMQS_DBA_API bool PtInsidePoly(const Attrib& poly, double x, double y) {
+	if (!poly.IsPoly())
+		return false;
+	const double* vx         = poly.GeomVerticesDbl();
+	size_t        stride_dbl = poly.GeomDimensions();
+	int           inside     = 0;
+	for (size_t iRing = 0; iRing < poly.GeomNumParts(); iRing++) {
+		int start, count;
+		poly.GeomPart(iRing, start, count);
+		inside ^= geom2d::PtInsidePoly(x, y, count, vx + start * stride_dbl, stride_dbl) ? 1 : 0;
+	}
+	return inside != 0;
+}
+
+IMQS_DBA_API double Area(const Attrib& poly) {
+	if (!poly.IsPoly())
+		return 0;
+	double        area         = 0;
+	const double* vx           = poly.GeomVerticesDbl();
+	size_t        stride_dbl   = poly.GeomDimensions();
+	size_t        numParts     = poly.GeomNumParts();
+	bool          haveRingInfo = poly.GeomIsWKBOrder(); // If we don't have ring info, then assume that all rings are exterior
+	for (size_t iRing = 0; iRing < numParts; iRing++) {
+		int    start, count;
+		auto   flags    = poly.GeomPart(iRing, start, count);
+		double partArea = geom2d::PolygonArea(count, vx + start * stride_dbl, stride_dbl);
+		if (!haveRingInfo || !!(flags & GeomPartFlag_ExteriorRing))
+			area += partArea;
+		else
+			area -= partArea;
+	}
+	return area;
+}
+
 } // namespace geom
 } // namespace dba
 } // namespace imqs

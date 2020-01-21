@@ -14,7 +14,9 @@ void IMQS_NORETURN Die(const char* file, int line, const char* msg) {
 	if (DieCallback)
 		DieCallback(DieCallbackContext, file, line, msg);
 	IMQS_DEBUG_BREAK();
-	*((int*) 1) = 1;
+#ifdef __clang__
+	__builtin_trap();
+#endif
 }
 
 IMQS_PAL_API void SetAssertCallback(void* context, void (*callback)(void* context, const char* file, int line, const char* msg)) {

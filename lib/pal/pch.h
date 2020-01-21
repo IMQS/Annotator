@@ -12,3 +12,6 @@
 //#include <minizip/src/mz_strm.h>
 #include <minizip/src/mz_strm_mem.h>
 #include <minizip/src/mz_zip.h>
+
+#include <openssl/rsa.h>
+#include <openssl/pem.h>

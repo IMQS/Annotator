@@ -21,7 +21,7 @@ static std::string SysErrMsg(DWORD err) {
 	    (LPSTR) &lpMsgBuf,
 	    0, nullptr);
 
-	sprintf(szBuf, "(%u) %s", err, (const char*) lpMsgBuf);
+	sprintf(szBuf, "(%u) %s", (uint32_t) err, (const char*) lpMsgBuf);
 	LocalFree(lpMsgBuf);
 
 	// chop off trailing carriage returns
@@ -74,7 +74,7 @@ bool WinService_State::Run() {
 
 	SERVICE_TABLE_ENTRY dispatchTable[] =
 	    {
-	        {TEXT(""), (LPSERVICE_MAIN_FUNCTION) SvcMain}, // name is ignored for SERVICE_WIN32_OWN_PROCESS
+	        {(char*) TEXT(""), (LPSERVICE_MAIN_FUNCTION) SvcMain}, // name is ignored for SERVICE_WIN32_OWN_PROCESS
 	        {nullptr, nullptr}};
 
 	if (!StartServiceCtrlDispatcher(dispatchTable)) {

@@ -6,9 +6,22 @@
 #include "../AttribGeom.h"
 
 /*
-apt install libiodbc2
+# Linux Instructions
+
+sudo apt install libiodbc2
 
 # https://docs.microsoft.com/en-us/sql/connect/odbc/linux-mac/installing-the-microsoft-odbc-driver-for-sql-server?view=sql-server-2017
+
+# Ubuntu (18.04)
+sudo su
+curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | apt-key add -
+curl https://packages.microsoft.com/config/ubuntu/18.04/prod.list > /etc/apt/sources.list.d/mssql-release.list
+exit
+sudo apt-get update
+sudo ACCEPT_EULA=Y apt-get install -y msodbcsql17
+# ALSO.. On 2019-12-09, I had to do this:
+cd /usr/lib
+sudo ln -s libmsodbcsql-17.so libmsodbcsql.so
 
 # Ubuntu (16.04)
 curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
@@ -254,6 +267,8 @@ Error MSSQLRows::Get(size_t col, Attrib& val, Allocator* alloc) {
 			return Error();
 		}
 		switch (v.FieldType()) {
+		case SA_dtBytes:
+		case SA_dtLongBinary:
 		case SA_dtBLob:
 			if (v.Name() == SpecialWKBFieldName) {
 				auto err = WKB::Decode(v.asBLob(), v.asBLob().GetBinaryLength(), val, alloc);

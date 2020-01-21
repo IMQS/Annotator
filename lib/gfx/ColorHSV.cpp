@@ -10,10 +10,10 @@ ColorHSVA ColorHSVA::FromFloat(float h, float s, float v, float a) {
 	s          = math::Clamp(s, 0.0f, 1.0f);
 	v          = math::Clamp(v, 0.0f, 1.0f);
 	a          = math::Clamp(a, 0.0f, 1.0f);
-	uint8_t _h = (uint8_t)(h * 255.0f);
-	uint8_t _s = (uint8_t)(s * 255.0f);
-	uint8_t _v = (uint8_t)(v * 255.0f);
-	uint8_t _a = (uint8_t)(a * 255.0f);
+	uint8_t _h = (uint8_t) floor(h * 255.0f + 0.5f);
+	uint8_t _s = (uint8_t) floor(s * 255.0f + 0.5f);
+	uint8_t _v = (uint8_t) floor(v * 255.0f + 0.5f);
+	uint8_t _a = (uint8_t) floor(a * 255.0f + 0.5f);
 	return ColorHSVA(_h, _s, _v, _a);
 }
 
@@ -75,9 +75,9 @@ Color8 ColorHSVA::ToRGBA() const {
 	float q = v_unit * (1 - f * s_unit);
 	float t = v_unit * (1 - (1 - f) * s_unit);
 
-	uint8_t p8 = (uint8_t)(p * 255.0f);
-	uint8_t q8 = (uint8_t)(q * 255.0f);
-	uint8_t t8 = (uint8_t)(t * 255.0f);
+	uint8_t p8 = (uint8_t) floor(p * 255.0f + 0.5f);
+	uint8_t q8 = (uint8_t) floor(q * 255.0f + 0.5f);
+	uint8_t t8 = (uint8_t) floor(t * 255.0f + 0.5f);
 
 	uint8_t r, g, b;
 	hsv2rgb((int) i, v, p8, q8, t8, r, g, b);

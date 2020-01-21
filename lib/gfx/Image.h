@@ -122,8 +122,12 @@ public:
 	void  CopyFrom(const Image& src);                                     // Copies as much from src into this as possible
 	void  CopyFrom(const Image& src, Rect32 srcRect, Rect32 dstRect);     // Source and destination rectangles are clipped before copying, but they must be equal in size
 	void  CopyFrom(const Image& src, Rect32 srcRect, int dstX, int dstY); // Source rectangle is clipped before copying
+	bool  IsAlphaUniform(uint8_t& alpha) const;                           // Read every alpha value, and if it's all the same, then set alpha to that value and return true. Otherwise, return false.
+	Image ExtractAlpha() const;                                           // Create a Gray image that contains only our alpha channel
+	void  BlendOnto(Image& dst) const;                                    // Blend this image onto 'dst. Images must be the same size, and RGBA, or the function will panic
 
 	Error LoadFile(const std::string& filename);
+	Error LoadBuffer(const void* buffer, size_t size);
 	Error SavePng(const std::string& filename, bool withAlpha = true, int zlibLevel = 5) const;
 	Error SaveJpeg(const std::string& filename, int quality = 90, JpegSampling sampling = JpegSampling::Samp444) const;
 	Error SaveFile(const std::string& filename) const;
@@ -143,6 +147,7 @@ public:
 	ChannelTypes    ChannelType() const { return gfx::ChannelType(Format); }
 	size_t          BytesPerLine() const { return gfx::BytesPerPixel(Format) * Width; }
 };
+
 
 } // namespace gfx
 } // namespace imqs

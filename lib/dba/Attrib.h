@@ -244,16 +244,17 @@ public:
 	// and the null terminator.
 	// In all cases, ToText returns the exact number of bytes necessary in 'buf'.
 	// If 'bufLen' is less than that number of bytes, then nothing is written.
-	size_t      ToText(char* buf, size_t bufLen) const;
-	Guid        ToGuid() const;
-	time::Time  ToDate() const;
-	void        ToJson(rapidjson::Value& out, rapidjson::Document::AllocatorType& allocator) const;
-	std::string ToSQLString() const;
-	Error       FromJson(const rapidjson::Value& in, dba::Type fieldType, Allocator* alloc = nullptr);
-	std::string ToWKTString() const;
-	std::string ToString() const;
-	const char* RawString() const; // Asserts if type is not text
-	size_t      TextLen() const;   // Asserts if type is not text
+	size_t         ToText(char* buf, size_t bufLen) const;
+	Guid           ToGuid() const;
+	time::Time     ToDate() const;
+	void           ToJson(rapidjson::Value& out, rapidjson::Document::AllocatorType& allocator) const;
+	nlohmann::json ToJson() const;
+	std::string    ToSQLString() const;
+	Error          FromJson(const rapidjson::Value& in, dba::Type fieldType, Allocator* alloc = nullptr);
+	std::string    ToWKTString() const;
+	std::string    ToString() const;
+	const char*    RawString() const; // Asserts if type is not text
+	size_t         TextLen() const;   // Asserts if type is not text
 
 	// For a version of ConvertTo() that can take an allocator, see CopyTo()
 	Attrib ConvertTo(dba::Type dstType) const;
@@ -321,9 +322,10 @@ public:
 	void          GeomAlterStorage(GeomFlags newFlags, Allocator* alloc = nullptr); // Alter [float/double, hasZ, hasM] attributes of geometry.
 	bool          GeomConvertSRID(int newSRID);
 	size_t        GeomRawSize() const;
-	void          GeomCopyRawOut(void* dst) const;                                        // Copy our raw contents out into a buffer of size GeomRawSize()
-	void          GeomCopyRawIn(const void* src, size_t len, Allocator* alloc = nullptr); // Copy our raw contents back in from a buffer that was written to with GeomCopyRawOut().
-	void          SetTempGeomRaw(const void* src, size_t len);                            // Directly assign pointer
+	void          GeomCopyRawOut(void* dst) const;                                                   // Copy our raw contents out into a buffer of size GeomRawSize()
+	void          GeomCopyRawIn(const void* src, size_t len, Allocator* alloc = nullptr);            // Copy our raw contents back in from a buffer that was written to with GeomCopyRawOut().
+	void          SetTempGeomRaw(const void* src, size_t len);                                       // Directly assign pointer
+	void          GeomPolyConvert(dba::Type dstType, Attrib& dst, Allocator* alloc = nullptr) const; // Convert between polyline and polygon, if possible.
 	const double* GeomFirstVertex() const;
 	const double* GeomLastVertex() const;
 	uint32_t      GeomNumExternalRings() const; // Only applicable to Polygon. For other types, returns GeomNumParts(). If GeomIsWKBOrder() is false, then this will return 0.

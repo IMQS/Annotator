@@ -66,7 +66,7 @@ private:
 	static ErrDetail Translate(PortableDB* db, ModTable* modTab, const podvec<XStringA>& tables, const XStringA& input, SqlStr& output);
 	static int       TableIndexFromModTableField(const TxInput& in, int fieldIndexInModTable);
 };
-}
-}
-}
+} // namespace sqlparser
+} // namespace dba
+} // namespace imqs
 #endif

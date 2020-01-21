@@ -622,7 +622,7 @@ void Attrib::ToJson(rapidjson::Value& out, rapidjson::Document::AllocatorType& a
 			int              start, count;
 			auto             closed = !!(GeomPart(partIdx, start, count) & GeomPartFlag_Closed);
 			rapidjson::Value vertexOut(rapidjson::kArrayType);
-			int*             indices = (int*) malloc(count * sizeof(int));
+			int*             indices = (int*) imqs_malloc_or_die(count * sizeof(int));
 			for (auto vIdx = 0; vIdx < count; vIdx++)
 				indices[vIdx] = start + vIdx;
 			pushPart(vertexOut, vertices, indices, count, closed);
@@ -634,6 +634,30 @@ void Attrib::ToJson(rapidjson::Value& out, rapidjson::Document::AllocatorType& a
 	}
 	default:
 		break;
+	}
+}
+
+nlohmann::json Attrib::ToJson() const {
+	switch (Type) {
+	case Type::Bool: return Value.Bool;
+	case Type::Int16: return Value.Int16;
+	case Type::Int32: return Value.Int32;
+	case Type::Int64: return Value.Int64;
+	case Type::Float: return Value.Float;
+	case Type::Double: return Value.Double;
+	case Type::Text: return Value.Text.Data;
+	case Type::Null: return nlohmann::json();
+	case Type::Guid:
+	case Type::Date:
+	case Type::Bin:
+		return ToString();
+	case Type::JSONB: {
+		nlohmann::json doc;
+		if (nj::ParseString(Value.Text.Data, doc).OK())
+			return doc;
+	}
+	default:
+		return nlohmann::json();
 	}
 }
 
@@ -978,7 +1002,7 @@ std::string Attrib::ToWKTString() const {
 			int              start, count;
 			auto             closed = !!(GeomPart(partIdx, start, count) & GeomPartFlag_Closed);
 			rapidjson::Value vertexOut(rapidjson::kArrayType);
-			int*             indices = (int*) malloc(count * sizeof(int));
+			int*             indices = (int*) imqs_malloc_or_die(count * sizeof(int));
 			for (auto vIdx = 0; vIdx < count; vIdx++)
 				indices[vIdx] = start + vIdx;
 			std::string partStr;
@@ -1557,6 +1581,68 @@ void Attrib::SetTempGeomRaw(const void* src, size_t len) {
 	Flags |= Flags::CustomHeap;
 }
 
+// Convert polyline to polygon, or vice versa
+// Note that 'dst' can be null, for example if the source polyline has no rings
+// with more than 2 vertices.
+void Attrib::GeomPolyConvert(dba::Type dstType, Attrib& dst, Allocator* alloc) const {
+	dst.Reset();
+
+	if (IsNull())
+		return;
+
+	if (Type == dstType) {
+		dst.CopyFrom(*this, alloc);
+		return;
+	}
+
+	if (!((Type == dba::Type::GeomPolygon && dstType == dba::Type::GeomPolyline) ||
+	      (Type == dba::Type::GeomPolyline && dstType == dba::Type::GeomPolygon))) {
+		IMQS_DIE();
+		return;
+	}
+
+	dba::GeomFlags dstFlags = dba::GeomFlags::None;
+	if (GeomHasM())
+		dstFlags |= dba::GeomFlags::HasM;
+	if (GeomHasZ())
+		dstFlags |= dba::GeomFlags::HasZ;
+
+	std::vector<uint32_t> parts;
+	std::vector<double>   vx;
+
+	size_t dim = GeomDimensions();
+	parts.reserve(GeomNumParts() + 1);
+	vx.reserve(GeomTotalVertexCount() * dim);
+
+	uint32_t nVertex = 0;
+	for (size_t j = 0; j < GeomNumParts(); j++) {
+		int  start, count;
+		auto flags = GeomPart(j, start, count);
+		if (count < 3 && dstType == dba::Type::GeomPolygon) {
+			// Polygon rings must have at least 3 vertices
+			continue;
+		}
+		uint32_t part = nVertex;
+		if (!!(flags & dba::GeomPartFlag_Closed) || dstType == dba::Type::GeomPolygon) {
+			part |= dba::GeomPartFlag_Closed;
+		}
+		parts.push_back(part);
+		const double* srcVx = GeomVerticesDbl() + dim * start;
+		for (int k = 0; k < count; k++) {
+			for (size_t q = 0; q < dim; q++)
+				vx.push_back(*srcVx++);
+		}
+		nVertex += count;
+	}
+	parts.push_back((uint32_t) nVertex); // sentinel
+	if (parts.size() == 1) {
+		// destination is empty
+		return;
+	}
+
+	dst.SetPoly(dstType, dstFlags, (int) parts.size() - 1, &parts[0], &vx[0], GeomSRID(), alloc);
+}
+
 const double* Attrib::GeomFirstVertex() const {
 	return GeomVerticesDbl();
 }
@@ -1688,6 +1774,7 @@ void Attrib::Free() {
 
 	switch (Type) {
 	case Type::Text:
+	case Type::JSONB:
 		MemPool::FreeText(Value.Text.Data);
 		break;
 	case Type::Guid:

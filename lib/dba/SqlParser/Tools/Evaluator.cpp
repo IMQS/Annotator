@@ -95,6 +95,6 @@ int Evaluator::CompareAny(const Attrib& a, const Attrib& b) {
 
 	return 0;
 }
-}
-}
-}
+} // namespace sqlparser
+} // namespace dba
+} // namespace imqs

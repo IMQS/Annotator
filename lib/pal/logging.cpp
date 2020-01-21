@@ -44,6 +44,11 @@ IMQS_PAL_API void CreateLogger(const char* module, uberlog::Logger& logger) {
 	// Uberlog solves the above problem, and does so without any cost in performance.
 	logger.SetArchiveSettings(30 * 1024 * 1024, 3);
 	logger.Open((logRootPath + module + ".log").c_str());
+
+	if (os::IsRunningInContainer()) {
+		// When running in docker, we use Datadog to scrape logs from stdout, from all containers.
+		logger.TeeStdOut = true;
+	}
 }
 
 IMQS_PAL_API void SetCrashLogger(uberlog::Logger* logger) {
@@ -132,17 +137,17 @@ static LONG WINAPI UnhandledExceptionHandler(EXCEPTION_POINTERS* exPointers) {
 	return EXCEPTION_EXECUTE_HANDLER;
 }
 
-static LONG WINAPI VectoredExceptionHandler(EXCEPTION_POINTERS* exPointers) {
-	DWORD code = exPointers->ExceptionRecord->ExceptionCode;
-	if (code == 0x406D1388) {
-		// This is the _SetThreadName function, which uses a special exception to inform the debugger of a thread name
-		// Once we have Windows 10 Creator's Edition, we can get rid of this mechanism, because they added SetThreadDescription
-		// to the kernel with that Windows version.
-		return EXCEPTION_CONTINUE_SEARCH;
-	}
-
-	return UnhandledExceptionHandler(exPointers);
-}
+//static LONG WINAPI VectoredExceptionHandler(EXCEPTION_POINTERS* exPointers) {
+//	DWORD code = exPointers->ExceptionRecord->ExceptionCode;
+//	if (code == 0x406D1388) {
+//		// This is the _SetThreadName function, which uses a special exception to inform the debugger of a thread name
+//		// Once we have Windows 10 Creator's Edition, we can get rid of this mechanism, because they added SetThreadDescription
+//		// to the kernel with that Windows version.
+//		return EXCEPTION_CONTINUE_SEARCH;
+//	}
+//
+//	return UnhandledExceptionHandler(exPointers);
+//}
 
 static LONG WINAPI HeapExceptionHandler(EXCEPTION_POINTERS* exPointers) {
 	DWORD code = exPointers->ExceptionRecord->ExceptionCode;

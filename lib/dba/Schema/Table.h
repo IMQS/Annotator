@@ -119,7 +119,7 @@ public:
 	Error                    AddInheritedSchemaFrom(const Table& baseTable);
 	size_t                   FindRelation(const char* foreignTable, const char* foreignField) const;
 	bool                     FieldHasUniqueIndex(const Field& field) const;
-	void                     ToString(std::string& s) const;
+	void                     ToString(std::string& s, const std::string& newline) const;
 	size_t                   PrimaryKeyIndex() const; // Returns the index of the primary key inside "Indexes", or -1 if there is no such index
 	const Index*             PrimaryKey() const;      // Returns null if none exists
 	void                     SetPrimaryKey(const char* field1, const char* field2 = nullptr, const char* field3 = nullptr);

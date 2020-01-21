@@ -24,6 +24,8 @@ public:
 
 	// Connect to a test DB, or create it if necessary
 	static dba::Conn* ConnectToTestDB(std::string dbName, uint32_t connectFlags = Connect_WipeTables | Connect_InstallModTrack);
+
+	static void WipeAllTables(dba::Conn* con);
 };
 
 } // namespace dbutil

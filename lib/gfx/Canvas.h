@@ -74,6 +74,7 @@ public:
 	void Circle(float x, float y, float radius, Color8 color, float linewidth);
 	void FillCircle(float x, float y, float radius, Color8 color);
 	void FillPoly(int nvx, const float* vx, int vx_stride_bytes, Color8 color);
+	void StrokePoly(bool closed, int nvx, const float* vx, int vx_stride_bytes, Color8 color, float linewidth);
 	//void RenderSVG(const char* svg);
 	//void Text(float x, float y, float angle, float size, Color8 color, const char* font, const char* str);
 

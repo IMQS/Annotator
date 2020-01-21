@@ -30,6 +30,17 @@ enum class Month {
 	December,
 };
 
+struct Components {
+	int     Year    = 0;
+	Month   Month   = Month::January;
+	int     Day     = 0;
+	int     YearDay = 0;
+	Weekday Weekday = Weekday::Sunday;
+	int     Hour    = 0;
+	int     Minute  = 0;
+	int     Second  = 0;
+};
+
 // Nanosecond-precision duration
 // To form a duration, multiply an integer by one of the predefined constants Nanosecond, Second, etc.
 //   Duration d = 30 * Second;
@@ -100,8 +111,9 @@ public:
 	time::Month   Month() const; // Compute month only (consider using DateComponents if retrieving more than just the month)
 	int           Day() const;   // Compute day of month (starting at 1) (consider using DateComponents if retrieving more than just the month)
 
-	void DateComponents(int& year, time::Month& month, int& day, int& yday) const;
-	void TimeComponents(int& hour, int& min, int& sec) const;
+	void       DateComponents(int& year, time::Month& month, int& day, int& yday) const;
+	void       TimeComponents(int& hour, int& min, int& sec) const;
+	Components Components() const; // Returns a struct containing the components of the Time object. When uninitialized, defaults to zero
 
 	// Return nanoseconds beyond the second
 	int Nanoseconds() const { return (int) Nsec; }

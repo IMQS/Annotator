@@ -50,5 +50,17 @@ IMQS_PAL_API Error ParseString(const char* str, tinyxml2::XMLDocument& doc, size
 	return Error();
 }
 
+IMQS_PAL_API std::string ToString(tinyxml2::XMLDocument& doc) {
+	tinyxml2::XMLPrinter printer;
+	doc.Accept(&printer);
+	return std::string(printer.CStr(), printer.CStrSize() - 1); // -1 to remove null terminator
+}
+
+IMQS_PAL_API std::string ToString(tinyxml2::XMLElement* el) {
+	tinyxml2::XMLPrinter printer;
+	el->Accept(&printer);
+	return std::string(printer.CStr(), printer.CStrSize() - 1); // -1 to remove null terminator
+}
+
 } // namespace xml
 } // namespace imqs

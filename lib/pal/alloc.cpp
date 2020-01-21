@@ -28,4 +28,4 @@ void* realloc_or_die_internal(void* p, size_t bytes, const char* file, int line)
 	// this code is never reached
 	return nullptr;
 }
-}
+} // namespace imqs

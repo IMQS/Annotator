@@ -1,11 +1,18 @@
 #include "pch.h"
 #include "Image.h"
 #include "ImageIO.h"
+#include "Blend.h"
 
 using namespace std;
 
 namespace imqs {
 namespace gfx {
+
+// This macro provides backwards compatibility for older Microsoft VS and Linux distributions
+// which does not support the _mm_loadu_si64 intrinsic.
+#ifndef _mm_loadu_si64
+#define _mm_loadu_si64(p) _mm_loadl_epi64((__m128i const*) (p))
+#endif
 
 const char* ImageTypeName(ImageType f) {
 	switch (f) {
@@ -62,13 +69,12 @@ Image::~Image() {
 
 Image& Image::operator=(const Image& b) {
 	if (this != &b) {
-		Reset();
-		Width   = b.Width;
-		Height  = b.Height;
-		Stride  = b.Stride;
-		Data    = (uint8_t*) imqs_malloc_or_die(Height * Stride);
-		Format  = b.Format;
-		OwnData = true;
+		if (OwnData && Format == b.Format && Width == b.Width && Height == b.Height && Stride == b.Stride) {
+			// No need to re-alloc
+		} else {
+			Reset();
+			Alloc(b.Format, b.Width, b.Height);
+		}
 		for (int y = 0; y < Height; y++)
 			memcpy(Line(y), b.Line(y), BytesPerLine());
 	}
@@ -228,8 +234,9 @@ Image Image::HalfSizeSIMD() const {
 			// So we want to load 2 pixels from the top, then expand 8 to 16 bits, and then same for the bottom row.
 			__m128i top    = _mm_loadu_si64(srcTop);
 			__m128i bottom = _mm_loadu_si64(srcBottom);
-			top            = _mm_shuffle_epi8(top, expand8To16);
-			bottom         = _mm_shuffle_epi8(bottom, expand8To16);
+
+			top    = _mm_shuffle_epi8(top, expand8To16);
+			bottom = _mm_shuffle_epi8(bottom, expand8To16);
 			// sum of bottom and top.
 			__m128i sum = _mm_add_epi16(top, bottom);
 			// we now want to sum the left and right halves of sum together
@@ -566,6 +573,62 @@ void Image::CopyFrom(const Image& src, Rect32 srcRect, int dstX, int dstY) {
 	CopyFrom(src, srcRect, Rect32(dstX, dstY, dstX + srcRect.Width(), dstY + srcRect.Height()));
 }
 
+bool Image::IsAlphaUniform(uint8_t& _alpha) const {
+	if (Height == 0)
+		return false;
+	if (Format == ImageFormat::RGBA || Format == ImageFormat::RGBAP) {
+		uint8_t alpha = Line(0)[3];
+		for (int y = 0; y < Height; y++) {
+			auto p     = Line(y) + 3;
+			int  width = Width;
+			for (int x = 0; x < width; x++) {
+				if (*p != alpha)
+					return false;
+				p += 4;
+			}
+		}
+		_alpha = alpha;
+		return true;
+	}
+	return false;
+}
+
+Image Image::ExtractAlpha() const {
+	IMQS_ASSERT(Format == ImageFormat::RGBA || Format == ImageFormat::RGBAP);
+	Image alpha;
+	alpha.Alloc(ImageFormat::Gray, Width, Height);
+	for (int y = 0; y < Height; y++) {
+		int  width = Width;
+		auto src   = Line(y) + 3;
+		auto dst   = alpha.Line(y);
+		for (int x = 0; x < width; x++) {
+			*dst = *src;
+			src += 4;
+			dst += 1;
+		}
+	}
+	return alpha;
+}
+
+void Image::BlendOnto(Image& dst) const {
+	IMQS_ASSERT(Format == ImageFormat::RGBA || Format == ImageFormat::RGBAP);
+	IMQS_ASSERT(dst.Format == ImageFormat::RGBA || dst.Format == ImageFormat::RGBAP);
+	for (int y = 0; y < Height; y++) {
+		int  width = Width;
+		auto srcP  = (const Color8*) Line32(y);
+		auto dstP  = (Color8*) dst.Line32(y);
+		if (Format == ImageFormat::RGBA) {
+			// multiply, then blend
+			for (int x = 0; x < width; x++, srcP++, dstP++)
+				BlendOver(srcP->Premultipied().u, (uint32_t*) dstP);
+		} else {
+			// just blend
+			for (int x = 0; x < width; x++, srcP++, dstP++)
+				BlendOver(srcP->u, (uint32_t*) dstP);
+		}
+	}
+}
+
 Error Image::LoadFile(const std::string& filename) {
 	ImageIO io;
 	string  raw;
@@ -574,6 +637,18 @@ Error Image::LoadFile(const std::string& filename) {
 	int     h   = 0;
 	void*   buf = nullptr;
 	err         = io.Load(raw.data(), raw.size(), w, h, buf);
+	if (!err.OK())
+		return err;
+	*this = Image(ImageFormat::RGBA, ConstructTakeOwnership, w * 4, buf, w, h);
+	return Error();
+}
+
+Error Image::LoadBuffer(const void* buffer, size_t size) {
+	ImageIO io;
+	int     w   = 0;
+	int     h   = 0;
+	void*   buf = nullptr;
+	auto    err = io.Load(buffer, size, w, h, buf);
 	if (!err.OK())
 		return err;
 	*this = Image(ImageFormat::RGBA, ConstructTakeOwnership, w * 4, buf, w, h);
@@ -589,11 +664,9 @@ Error Image::SavePng(const std::string& filename, bool withAlpha, int zlibLevel)
 }
 
 Error Image::SaveJpeg(const std::string& filename, int quality, JpegSampling sampling) const {
-	if (Format == ImageFormat::Gray) {
-		auto copy = AsType(ImageFormat::RGBA);
-		return copy.SaveJpeg(filename, quality, sampling);
-	}
-	return ImageIO::SaveJpegFile(filename, Width, Height, Stride, Data, quality, sampling);
+	if (Format == ImageFormat::Gray)
+		sampling = JpegSampling::SampGray;
+	return ImageIO::SaveJpegFile(filename, Format, Width, Height, Stride, Data, quality, sampling);
 }
 
 Error Image::SaveFile(const std::string& filename) const {

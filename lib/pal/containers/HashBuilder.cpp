@@ -16,4 +16,4 @@ void HashBuilder::GrowForAdditional(size_t len) {
 	Buf    = nbuf;
 	Cap    = newCap;
 }
-}
+} // namespace imqs

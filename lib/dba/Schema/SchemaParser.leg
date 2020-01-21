@@ -7,11 +7,16 @@
 ROOT				=							{ success(yy); }
 	WS
 	(VERSION WS)?
-	(TABLE | SUFFIXTABLES)+
+	(TABLESPACE | TABLE | SUFFIXTABLES)+
 	!.
 
 VERSION				= "VERSION" -
 	INT											{ version(yy, yytext); }
+	WS
+
+TABLESPACE				= "CREATE" - "SCHEMA" -		{ begin_tablespace(yy); }
+	IDTAB											{ tablespace_name(yy, yytext); }
+	SEMICOLON
 	WS
 
 TABLE				= "CREATE" - "TABLE" -		{ begin_table(yy); }

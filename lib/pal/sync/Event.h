@@ -27,6 +27,7 @@ public:
 	void Signal();                      // Signal the event
 	void Wait();                        // Wait for infinity
 	bool Wait(time::Duration duration); // Returns true if the wait returned because the event was signaled. Returns false if the timeout elapsed.
+	bool WaitNoHang();                  // Alias for Wait(0). Returns true if the event was signaled.
 
 private:
 	std::condition_variable CV;
@@ -34,5 +35,5 @@ private:
 	bool                    AutoReset = false;
 	bool                    Signalled = false;
 };
-}
-}
+} // namespace sync
+} // namespace imqs

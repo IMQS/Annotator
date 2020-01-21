@@ -19,10 +19,13 @@ ImageIO::~ImageIO() {
 		tjDestroy(JpegEncoder);
 }
 
-Error ImageIO::Save(int width, int height, int stride, const void* buf, ImageType type, bool withAlpha, int lossyQ_0_to_100, int losslessQ_1_to_9, void*& encBuf, size_t& encSize) {
+Error ImageIO::Save(ImageFormat format, int width, int height, int stride, const void* buf, ImageType type, bool withAlpha, int lossyQ_0_to_100, int losslessQ_1_to_9, void*& encBuf, size_t& encSize) {
 	switch (type) {
-	case ImageType::Jpeg: return SaveJpeg(width, height, stride, buf, lossyQ_0_to_100, JpegSampling::Samp422, encBuf, encSize);
-	case ImageType::Png: return SavePng(withAlpha, width, height, stride, buf, losslessQ_1_to_9, encBuf, encSize);
+	case ImageType::Jpeg: return SaveJpeg(format, width, height, stride, buf, lossyQ_0_to_100, JpegSampling::Samp444, encBuf, encSize);
+	case ImageType::Png:
+		if (!(format == ImageFormat::RGBA || format == ImageFormat::RGBAP))
+			return Error::Fmt("Invalid image type %v for PNG save", (int) format);
+		return SavePng(withAlpha, width, height, stride, buf, losslessQ_1_to_9, encBuf, encSize);
 	default: return Error("Unsupported image type for compression");
 	}
 }
@@ -176,6 +179,34 @@ Error ImageIO::LoadJpeg(const void* jpegBuf, size_t jpegLen, int& width, int& he
 	return LoadJpegScaled(jpegBuf, jpegLen, 1, width, height, buf, format);
 }
 
+Error ImageIO::LoadJpegHeader(const void* jpegBuf, size_t jpegLen, int* _width, int* _height, JpegSampling* _sampling, bool* _isColor) {
+	if (!JpegDecomp)
+		JpegDecomp = tjInitDecompress();
+	int width      = 0;
+	int height     = 0;
+	int subsamp    = 0;
+	int colorspace = 0;
+	if (0 != tjDecompressHeader3(JpegDecomp, (uint8_t*) jpegBuf, (unsigned long) jpegLen, &width, &height, &subsamp, &colorspace))
+		return ErrJpegHead;
+	if (_width)
+		*_width = width;
+	if (_height)
+		*_height = height;
+	if (_sampling)
+		*_sampling = (JpegSampling) subsamp;
+	if (_isColor)
+		*_isColor = colorspace != TJCS_GRAY;
+	return Error();
+}
+
+Error ImageIO::LoadJpegFileHeader(const std::string& filename, int* width, int* height, JpegSampling* sampling, bool* isColor) {
+	std::string buf;
+	auto        err = os::ReadWholeFile(filename, buf);
+	if (!err.OK())
+		return err;
+	return LoadJpegHeader(buf.data(), buf.size(), width, height, sampling, isColor);
+}
+
 Error ImageIO::LoadJpegScaled(const void* jpegBuf, size_t jpegLen, int scaleFactor, int& width, int& height, void*& buf, TJPF format) {
 	if (!JpegDecomp)
 		JpegDecomp = tjInitDecompress();
@@ -196,22 +227,35 @@ Error ImageIO::LoadJpegScaled(const void* jpegBuf, size_t jpegLen, int scaleFact
 	return Error();
 }
 
-Error ImageIO::SaveJpeg(int width, int height, int stride, const void* buf, int quality_0_to_100, JpegSampling sampling, void*& jpegBuf, size_t& jpegSize) {
+Error ImageIO::SaveJpeg(ImageFormat format, int width, int height, int stride, const void* buf, int quality_0_to_100, JpegSampling sampling, void*& jpegBuf, size_t& jpegSize) {
+	int tjFormat = 0;
+	switch (format) {
+	case ImageFormat::Null: return Error("Invalid format 'Null' for SaveJpeg");
+	case ImageFormat::F32_RG: return Error("Invalid format 'F32_RG' for SaveJpeg");
+	case ImageFormat::F32_RGBA: return Error("Invalid format 'F32_RGBA' for SaveJpeg");
+	case ImageFormat::RGBA: tjFormat = TJPF_RGBA; break;
+	case ImageFormat::RGBAP: tjFormat = TJPF_RGBA; break;
+	case ImageFormat::Gray:
+		tjFormat = TJPF_GRAY;
+		sampling = JpegSampling::SampGray;
+		break;
+	}
+
 	if (!JpegEncoder)
 		JpegEncoder = tjInitCompress();
 
 	unsigned long size = 0;
-	if (tjCompress2(JpegEncoder, (unsigned char*) buf, width, stride, height, TJPF_RGBA, (unsigned char**) &jpegBuf, &size, (int) sampling, quality_0_to_100, 0) != 0)
+	if (tjCompress2(JpegEncoder, (unsigned char*) buf, width, stride, height, tjFormat, (unsigned char**) &jpegBuf, &size, (int) sampling, quality_0_to_100, 0) != 0)
 		return Error(tjGetErrorStr());
 	jpegSize = size;
 	return Error();
 }
 
-Error ImageIO::SaveJpegFile(const std::string& filename, int width, int height, int stride, const void* buf, int quality_0_to_100, JpegSampling sampling) {
+Error ImageIO::SaveJpegFile(const std::string& filename, ImageFormat format, int width, int height, int stride, const void* buf, int quality_0_to_100, JpegSampling sampling) {
 	ImageIO self;
 	void*   encBuf  = nullptr;
 	size_t  encSize = 0;
-	auto    err     = self.SaveJpeg(width, height, stride, buf, quality_0_to_100, sampling, encBuf, encSize);
+	auto    err     = self.SaveJpeg(format, width, height, stride, buf, quality_0_to_100, sampling, encBuf, encSize);
 	if (!err.OK())
 		return err;
 	err = os::WriteWholeFile(filename, encBuf, encSize);

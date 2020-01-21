@@ -6,18 +6,31 @@
 namespace imqs {
 namespace dba {
 
-Error SchemaWriter::WriteSchema(Executor* ex, std::string tableSpace, const schema::DB& db, const std::vector<std::string>* restrictTables) {
+Error SchemaWriter::WriteSchema(Executor* ex, const schema::DB& db, const std::vector<std::string>* restrictTables) {
+	for (auto tableSpaceName : db.TableSpaceNames()) {
+		auto err = CreateTableSpace(ex, *db.TableSpaceByName(tableSpaceName));
+		if (!err.OK())
+			return err;
+	}
+
 	for (auto tableName : db.TableNames()) {
 		if (restrictTables && !stdutils::contains(*restrictTables, tableName))
 			continue;
-		auto err = CreateTable(ex, tableSpace, *db.TableByName(tableName));
+		auto err = CreateTable(ex, *db.TableByName(tableName));
 		if (!err.OK())
 			return err;
 	}
 	return Error();
 }
 
-Error SchemaWriter::CreateTable(Executor* ex, std::string tableSpace, const std::string& table, size_t nFields, const schema::Field* fields, const std::vector<std::string>& primKeyFields) {
+Error SchemaWriter::CreateTableSpace(Executor* ex, const std::string& tableSpace) {
+	schema::TableSpace ts;
+	ts.SetName(tableSpace);
+
+	return CreateTableSpace(ex, ts);
+}
+
+Error SchemaWriter::CreateTable(Executor* ex, const std::string& table, size_t nFields, const schema::Field* fields, const std::vector<std::string>& primKeyFields) {
 	schema::Table t;
 	t.SetName(table);
 
@@ -32,16 +45,16 @@ Error SchemaWriter::CreateTable(Executor* ex, std::string tableSpace, const std:
 		t.Indexes.push_back(idx);
 	}
 
-	return CreateTable(ex, tableSpace, t);
+	return CreateTable(ex, t);
 }
 
-Error SchemaWriter::CreateIndex(Executor* ex, std::string tableSpace, const std::string& table, const std::string& idxName, bool isUnique, const std::vector<std::string>& fields) {
+Error SchemaWriter::CreateIndex(Executor* ex, const std::string& table, const std::string& idxName, bool isUnique, const std::vector<std::string>& fields) {
 	schema::Index idx;
 	idx.Name     = idxName;
 	idx.IsUnique = isUnique;
 	for (const auto& f : fields)
 		idx.Fields.push_back(f);
-	return CreateIndex(ex, tableSpace, table, idx);
+	return CreateIndex(ex, table, idx);
 }
 
 void SchemaWriter::CreateTable_Fields(SqlStr& s, const schema::Table& table, bool addPrimaryKey) {
@@ -68,7 +81,7 @@ void SchemaWriter::CreateTable_Fields(SqlStr& s, const schema::Table& table, boo
 	}
 }
 
-Error SchemaWriter::CreateTable_Indexes(Executor* ex, const std::string& tableSpace, const schema::Table& table) {
+Error SchemaWriter::CreateTable_Indexes(Executor* ex, const schema::Table& table) {
 	bool dbHasSpatialIndex = !!(ex->Sql().Dialect->Flags() & SqlDialectFlags::SpatialIndex);
 
 	for (auto idx : table.Indexes) {
@@ -84,7 +97,7 @@ Error SchemaWriter::CreateTable_Indexes(Executor* ex, const std::string& tableSp
 				idx.IsSpatial = true;
 			}
 		}
-		auto err = CreateIndex(ex, tableSpace, table.GetName(), idx);
+		auto err = CreateIndex(ex, table.GetName(), idx);
 		if (!err.OK())
 			return err;
 	}

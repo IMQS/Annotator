@@ -5,7 +5,7 @@ namespace imqs {
 namespace crypto {
 
 #ifdef _WIN32
-static std::atomic<HCRYPTPROV> WinRandomProvider = 0;
+static std::atomic<HCRYPTPROV> WinRandomProvider;
 
 void Initialize() {
 	while (true) {
@@ -79,5 +79,5 @@ IMQS_PAL_API void RandomBytes(void* buf, size_t len) {
 }
 
 #endif
-}
-}
+} // namespace crypto
+} // namespace imqs

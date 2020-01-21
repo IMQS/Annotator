@@ -26,6 +26,6 @@ private:
 	static const ohash::set<std::string>  Exact_WhiteList;
 	static const std::vector<std::string> Wildcard_WhiteList;
 };
-}
-}
-}
+} // namespace sqlparser
+} // namespace dba
+} // namespace imqs

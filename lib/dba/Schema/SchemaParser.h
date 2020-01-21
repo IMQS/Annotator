@@ -8,6 +8,6 @@ class Field;
 
 IMQS_DBA_API Error       SchemaParse(const char* txt, DB& db);
 IMQS_DBA_API const char* FieldTypeToSchemaFileType(const Field& f);
-}
-}
-}
+} // namespace schema
+} // namespace dba
+} // namespace imqs

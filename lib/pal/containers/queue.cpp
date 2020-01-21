@@ -92,4 +92,4 @@ void Queue::Scan(bool forwards, void* context, ScanCallback cb) {
 		}
 	}
 }
-}
+} // namespace imqs

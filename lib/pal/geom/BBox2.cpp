@@ -4,4 +4,4 @@
 namespace imqs {
 namespace geom2d {
 }
-}
+} // namespace imqs

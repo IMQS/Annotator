@@ -7,7 +7,7 @@
 namespace imqs {
 namespace os {
 
-IMQS_PAL_API bool RegisterSignalHandler(int sig, void (*handler)(int sig, siginfo_t *siginfo, void *context));
+IMQS_PAL_API bool RegisterSignalHandler(int sig, void (*handler)(int sig, siginfo_t* siginfo, void* context));
 }
-}
+} // namespace imqs
 #endif

@@ -49,6 +49,14 @@ static void ExtractParamTypes(size_t nRecords, size_t stride, const Attrib** val
 					continue;
 				if (!values[i + j]->IsNull()) {
 					types[j] = values[i + j]->Type;
+
+					// Change all specific geometry types to just "GeomAny", so that we can mix
+					// different geometry types in an insert statement. Postgres is fine with this,
+					// because all geometry types share the same OID. I think other DBs are also
+					// fine with this.
+					if (dba::IsTypeGeom(types[j]))
+						types[j] = Type::GeomAny;
+
 					remain--;
 					if (remain == 0)
 						return;
@@ -57,7 +65,7 @@ static void ExtractParamTypes(size_t nRecords, size_t stride, const Attrib** val
 		}
 	}
 
-	// fill in defaults of int32
+	// Fill in defaults of int32
 	for (size_t i = 0; i < stride; i++) {
 		if (types[i] == Type::Null)
 			types[i] = Type::Int32;
@@ -106,6 +114,8 @@ Error CrudOps::Upsert(Executor* ex, const std::string& table, const std::string&
 }
 
 Error CrudOps::Upsert(Executor* ex, const std::string& table, const std::string& keyField, const std::vector<std::string>& fields, std::initializer_list<Attrib> values) {
+	if (fields.size() != values.end() - values.begin())
+		return Error::Fmt("len(fields) != len(values) in CrudOps::Upsert");
 	return Upsert(ex, table, keyField, 1, fields, values.begin());
 }
 
@@ -139,22 +149,6 @@ Error CrudOps::Insert(Executor* ex, const std::string& table, size_t nRecords, c
 
 		if (recordsPerStmt != prevRecordsPerStmt) {
 			sql.Clear();
-			/*
-			sql.Fmt("INSERT INTO %Q (", table);
-			for (const auto& f : fields)
-				sql.Fmt("%Q,", f);
-			sql.Chop();
-			sql += ") VALUES ";
-			size_t param = 1;
-			for (size_t i = 0; i < recordsPerStmt; i++) {
-				sql += "(";
-				for (size_t j = 0; j < fields.size(); j++)
-					sql.Fmt("$%d,", param++);
-				sql.Chop();
-				sql += "),";
-			}
-			sql.Chop();
-			*/
 			etl::GenerateInsert(sql, recordsPerStmt, table, fields, types);
 
 			auto err = ex->Prepare(sql, recordsPerStmt * fields.size(), &types[0], stmt);
@@ -173,6 +167,8 @@ Error CrudOps::Insert(Executor* ex, const std::string& table, size_t nRecords, c
 }
 
 Error CrudOps::Insert(Executor* ex, const std::string& table, size_t nRecords, const std::vector<std::string>& fields, const Attrib* values) {
+	if (nRecords == 0)
+		return Error();
 	std::vector<const Attrib*> p;
 	size_t                     n = nRecords * fields.size();
 	p.resize(n);

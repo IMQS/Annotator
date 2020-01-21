@@ -10,7 +10,7 @@ namespace gfx {
 
 static void TestTemplates() {
 	{
-		Vec2d a(1,2);
+		Vec2d a(1, 2);
 		Vec2d b = 5.0 * a;
 	}
 }

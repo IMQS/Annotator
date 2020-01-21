@@ -7,7 +7,7 @@
 namespace imqs {
 namespace dba {
 
-static Error ToError(sqlite3* s3) {
+Error GetSqliteErr(sqlite3* s3) {
 	const char* msg = sqlite3_errmsg(s3);
 	if (strstr(msg, "no such table:")) {
 		return Error(std::string(ErrStubTableNotFound) + (msg + 13));
@@ -61,7 +61,7 @@ Error SqliteRows::NextRow() {
 	switch (res) {
 	case SQLITE_ROW: return Error();
 	case SQLITE_DONE: return ErrEOF;
-	default: return ToError(DBConn()->HDB);
+	default: return GetSqliteErr(DBConn()->HDB);
 	}
 }
 
@@ -178,7 +178,7 @@ Error SqliteStmt::Exec(size_t nParams, const Attrib** params, DriverRows*& rowsO
 
 		err = sqlite3_reset(Stmt);
 		if (err != SQLITE_OK)
-			return ToError(DBConn()->HDB);
+			return GetSqliteErr(DBConn()->HDB);
 
 		ValuesBound = false;
 	} else {
@@ -249,7 +249,7 @@ Error SqliteStmt::Exec(size_t nParams, const Attrib** params, DriverRows*& rowsO
 		}
 
 		if (err != SQLITE_OK)
-			return ToError(DBConn()->HDB);
+			return GetSqliteErr(DBConn()->HDB);
 	}
 
 	err = sqlite3_step(Stmt);
@@ -261,7 +261,7 @@ Error SqliteStmt::Exec(size_t nParams, const Attrib** params, DriverRows*& rowsO
 		rowsOut     = new SqliteRows(DBConn(), Stmt, err == SQLITE_DONE);
 		return Error();
 	default:
-		return ToError(DBConn()->HDB);
+		return GetSqliteErr(DBConn()->HDB);
 	}
 }
 
@@ -331,7 +331,7 @@ Error SqliteConn::Prepare(const char* sql, size_t nParams, const Type* paramType
 	auto          res = sqlite3_prepare_v2(HDB, sql, (int) strlen(sql), &s, nullptr);
 
 	if (res != SQLITE_OK)
-		return ToError(HDB);
+		return GetSqliteErr(HDB);
 
 	SqliteStmt* sstmt = new SqliteStmt(this, s);
 	stmt              = sstmt;
@@ -360,7 +360,7 @@ Error SqliteConn::Connect(const ConnDesc& desc) {
 	auto status = sqlite3_open_v2(desc.Database.c_str(), &HDB, flags, nullptr);
 	if (status != SQLITE_OK) {
 		Close();
-		return ToError(HDB);
+		return GetSqliteErr(HDB);
 	}
 	sqlite3_create_function(HDB, "dba_ST_AsGeom", 1, SQLITE_UTF8 | SQLITE_DETERMINISTIC, nullptr, CustomFunc_dba_ST_AsGeom, nullptr, nullptr);
 	sqlite3_create_function(HDB, "dba_AsGUID", 1, SQLITE_UTF8 | SQLITE_DETERMINISTIC, nullptr, CustomFunc_dba_AsGUID, nullptr, nullptr);
@@ -378,7 +378,7 @@ void SqliteConn::Close() {
 Error SqliteConn::Exec(const char* sql) {
 	char* err = nullptr;
 	if (sqlite3_exec(HDB, sql, nullptr, nullptr, &err) != SQLITE_OK)
-		return ToError(HDB);
+		return GetSqliteErr(HDB);
 
 	auto res = Error();
 	if (err != nullptr) {

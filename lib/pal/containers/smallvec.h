@@ -108,7 +108,7 @@ private:
 		size_t newCap = Cap;
 		while (newCap < total)
 			newCap *= 2;
-		T*     newData = (T*) imqs_malloc_or_die(sizeof(T) * newCap);
+		T* newData = (T*) imqs_malloc_or_die(sizeof(T) * newCap);
 		for (size_t i = 0; i < Len; i++) {
 			// Use empty constructor and swap, which will avoid reallocs if the type has an
 			// appropriate swap function defined for it.
@@ -121,4 +121,4 @@ private:
 		Cap  = newCap;
 	}
 };
-}
+} // namespace imqs

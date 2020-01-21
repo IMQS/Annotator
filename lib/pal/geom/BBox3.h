@@ -78,5 +78,5 @@ public:
 
 typedef BBox3<double> BBox3d;
 typedef BBox3<float>  BBox3f;
-} // namespace geom2d
+} // namespace geom3d
 } // namespace imqs

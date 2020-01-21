@@ -31,6 +31,10 @@ public:
 		return p ? *p : ifNotExist;
 	}
 
+	TVal* GetP(const Attrib& key) {
+		return Map.getp(&key);
+	}
+
 	size_t Size() const { return Map.size(); }
 
 	iterator begin() const { return Map.begin(); }

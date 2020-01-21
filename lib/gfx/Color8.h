@@ -10,13 +10,15 @@ namespace gfx {
 class ColorHSVA;
 
 // Jim Blinn's perfect unsigned byte multiply
-inline unsigned ByteMul(unsigned a, unsigned b) {
-	unsigned i = a * b + 128;
+template <typename T>
+T ByteMul(T a, T b) {
+	T i = a * b + 128;
 	return (i + (i >> 8)) >> 8;
 }
 
 // A cheaper unsigned byte multiplier, which only guarantees that 1 * x = x, and 0 * x = 0
-inline unsigned ByteMulCheap(unsigned a, unsigned b) {
+template <typename T>
+T ByteMulCheap(T a, T b) {
 	return ((a + 1) * b) >> 8;
 }
 
@@ -46,6 +48,7 @@ public:
 	};
 
 	Color8() {}
+	Color8(uint32_t u) : u(u) {}
 	Color8(uint8_t r, uint8_t g, uint8_t b, uint8_t a) : r(r), g(g), b(b), a(a) {}
 	bool   operator==(const Color8& b) const { return u == b.u; }
 	bool   operator!=(const Color8& b) const { return u != b.u; }
@@ -111,9 +114,9 @@ public:
 };
 
 inline void Color8::Premultiply() {
-	r = ByteMul(r, a);
-	g = ByteMul(g, a);
-	b = ByteMul(b, a);
+	r = (uint8_t) ByteMul<int32_t>(r, a);
+	g = (uint8_t) ByteMul<int32_t>(g, a);
+	b = (uint8_t) ByteMul<int32_t>(b, a);
 }
 
 inline Color8 Color8::Premultipied() const {
@@ -140,3 +143,10 @@ inline uint8_t Color8::Lum() const {
 
 } // namespace gfx
 } // namespace imqs
+
+namespace ohash {
+template <>
+inline hashkey_t gethashcode(const imqs::gfx::Color8& c) {
+	return (hashkey_t) c.u;
+}
+} // namespace ohash

@@ -213,7 +213,7 @@ size_t Table::FindRelation(const char* foreignTable, const char* foreignField) c
 	return -1;
 }
 
-void Table::ToString(std::string& s) const {
+void Table::ToString(std::string& s, const std::string& newline) const {
 	auto fields = Fields;
 	std::stable_sort(fields.begin(), fields.end(), [](const Field& a, const Field& b) -> bool {
 		return a.UIGroup < b.UIGroup;
@@ -222,14 +222,14 @@ void Table::ToString(std::string& s) const {
 	s += fmt("CREATE TABLE \"%s\" %s", FriendlyName, Name);
 	if (InheritedFrom != "")
 		s += fmt(" : %s", InheritedFrom);
-	s += "\r\n{\r\n";
+	s += newline + "{" + newline;
 
 	std::string currentGroup;
 	for (const auto& f : fields) {
 		if (f.UIGroup != currentGroup) {
 			s += "\t\"";
 			s += f.UIGroup;
-			s += "\t\"\r\n";
+			s += "\t\"" + newline;
 			currentGroup = f.UIGroup;
 		}
 		// optional text field "Field" unit:m tags:disp
@@ -244,6 +244,9 @@ void Table::ToString(std::string& s) const {
 		if (f.UIOrder != 0)
 			line += fmt(" uiorder:%v", f.UIOrder);
 
+		if (f.UIDigits != 0)
+			line += fmt(" digits:%v", f.UIDigits);
+
 		if (f.Unit != "")
 			line += fmt(" unit:%v", f.Unit);
 
@@ -251,11 +254,11 @@ void Table::ToString(std::string& s) const {
 			line += " tags:";
 			line += strings::Join(f.TagArray(), ",");
 		}
-		s += strings::TrimRight(line) + "\r\n";
+		s += strings::TrimRight(line) + newline;
 	}
 
 	if (Relations.size() != 0) {
-		s += "\r\n";
+		s += newline;
 		for (const auto& rel : Relations) {
 			const char* rtype = nullptr;
 			switch (rel.Type) {
@@ -277,24 +280,26 @@ void Table::ToString(std::string& s) const {
 	}
 
 	// nothing supported here yet
-	IMQS_ASSERT(Flags == TableFlags::None);
+	// UPDATE - just ignore this - this code is used as part of a semi-manual process, so it's OK to
+	// just dump all tables, regardless of their flags.
+	//IMQS_ASSERT(Flags == TableFlags::None);
 
 	if (Indexes.size() == 0) {
-		s += "};\r\n";
+		s += "};" + newline;
 	} else {
-		s += "}\r\n";
+		s += "}" + newline;
 		auto pkey = PrimaryKeyIndex();
 		if (pkey != -1)
-			s += "PRIMARY KEY(" + strings::Join(Indexes[pkey].Fields, ", ") + ")\r\n";
+			s += "PRIMARY KEY(" + strings::Join(Indexes[pkey].Fields, ", ") + ")" + newline;
 
 		for (size_t i = 0; i < Indexes.size(); i++) {
 			if (i == pkey)
 				continue;
 			s += Indexes[i].IsUnique ? "UNIQUE INDEX" : "INDEX";
-			s += "(" + strings::Join(Indexes[i].Fields, ", ") + ")\r\n";
+			s += "(" + strings::Join(Indexes[i].Fields, ", ") + ")" + newline;
 		}
-		s.erase(s.end() - 2); // erase dangling \r\n
-		s += ";\r\n";
+		s.erase(s.end() - newline.size()); // erase dangling newline
+		s += ";" + newline;
 	}
 }
 

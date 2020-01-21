@@ -69,6 +69,11 @@ public:
 		       b.X2 <= X2 && b.Y2 <= Y2;
 	}
 
+	// Returns true if this box is inside or equal to the other box
+	bool IsInsideOf(const BBox2& b) const {
+		return b.IsInsideMe(*this);
+	}
+
 	T Width() const {
 		return X2 - X1;
 	}

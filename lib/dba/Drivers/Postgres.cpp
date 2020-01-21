@@ -592,7 +592,8 @@ SqlDialectFlags PostgresDialect::Flags() {
 	       SqlDialectFlags::GeomSpecificFieldTypes |
 	       SqlDialectFlags::Int16 |
 	       SqlDialectFlags::Float |
-	       SqlDialectFlags::JSONB;
+	       SqlDialectFlags::JSONB |
+	       SqlDialectFlags::NamedSchemas;
 }
 
 imqs::dba::Syntax PostgresDialect::Syntax() {
@@ -1023,7 +1024,7 @@ Error PostgresStmt::PackParams(const Attrib** params) {
 		const Attrib* p        = params[i];
 		int           len      = 0;
 		intptr_t      paramPos = ParamBuf.Len;
-		if (p != nullptr && !p->IsNull() && p->Type != ParamTypes[i]) {
+		if (p != nullptr && !p->IsNull() && p->Type != ParamTypes[i] && !(IsTypeGeom(p->Type) && ParamTypes[i] == Type::GeomAny)) {
 			ConvertedAttribBuf.Reset();
 			p->CopyTo(ParamTypes[i], tmp, &ConvertedAttribBuf);
 			p = &tmp;

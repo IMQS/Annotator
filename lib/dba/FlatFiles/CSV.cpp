@@ -7,6 +7,10 @@ using namespace std;
 namespace imqs {
 namespace dba {
 
+CSV::CSV() {
+	ValidSeparators = { ',', '\t', ';' };
+}
+
 Error CSV::Open(const std::string& filename, bool create) {
 	IMQS_ASSERT(!create);
 	auto err = File.Open(filename);
@@ -18,6 +22,10 @@ Error CSV::Open(const std::string& filename, bool create) {
 	// Since we're running off a memory mapped file, we actually want a small buffer.
 	// If the reader is seeking, then we *especially* want a small buffer.
 	Decoder.SetBufferSize(512);
+
+	err = AutoDiscoverSeparatorType();
+	if (!err.OK())
+		return err;
 
 	err = ReadFields();
 	if (!err.OK())
@@ -86,7 +94,8 @@ Error CSV::ReadFields() {
 	auto err = File.Seek(0, io::SeekWhence::Begin);
 	if (!err.OK())
 		return err;
-	err = Decoder.ReadLine(Buf, BufCells);
+	Decoder.ResetBuffer();
+	err = Decoder.ClearAndReadLine(Buf, BufCells);
 	if (!err.OK())
 		return err;
 	if (BufCells.size() == 0)
@@ -251,6 +260,46 @@ Error CSV::ReadRecordStarts() {
 			CachedFields[i].Type = t;
 		}
 	}
+
+	return Error();
+}
+
+// See if this is comma separated or tab separated
+Error CSV::AutoDiscoverSeparatorType() {
+	const size_t maxSampleLines = 10;
+
+	// Try every type of separator, and choose the one that yielded the most columns
+	size_t bestColCount = 0;
+	char   bestSep      = ValidSeparators[0];
+
+	for (char sep : ValidSeparators) {
+		auto err = File.Seek(0, io::SeekWhence::Begin);
+		if (!err.OK())
+			return err;
+		Decoder.Separator = sep;
+		Decoder.ResetBuffer();
+
+		// Accept the first separator type that returns the exact same number
+		// of columns for all of the sampled lines
+		size_t nCol  = 0;
+		bool   valid = true;
+		for (size_t i = 0; i < maxSampleLines && valid; i++) {
+			err = Decoder.ClearAndReadLine(Buf, BufCells);
+			if (err == ErrEOF)
+				break;
+			if (i == 0) {
+				nCol = BufCells.size();
+			} else if (nCol != BufCells.size()) {
+				valid = false;
+			}
+		}
+		if (valid && nCol > bestColCount) {
+			bestColCount = nCol;
+			bestSep      = sep;
+		}
+	}
+
+	Decoder.Separator = bestSep;
 
 	return Error();
 }

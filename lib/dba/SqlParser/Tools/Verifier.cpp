@@ -63,6 +63,6 @@ bool Verifier::IsSafeToExecuteExpressionAST(const SqlAST* node) {
 
 	return true;
 }
-}
-}
-}
+} // namespace sqlparser
+} // namespace dba
+} // namespace imqs

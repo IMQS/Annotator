@@ -180,6 +180,6 @@ enum PatchType {
 };
 
 #pragma pack(pop)
-}
+} // namespace shapefile
 } // namespace dba
 } // namespace imqs

@@ -35,15 +35,15 @@ IMQS_PAL_API bool IsAbsolute(const std::string& path) {
 	return false;
 }
 
-static size_t LastSep(const char* p) {
-	size_t i    = 0;
-	size_t last = -1;
-	for (; p[i]; i++) {
-		if (IsAnySeparator(p[i]))
-			last = i;
-	}
-	return last;
-}
+//static size_t LastSep(const char* p) {
+//	size_t i    = 0;
+//	size_t last = -1;
+//	for (; p[i]; i++) {
+//		if (IsAnySeparator(p[i]))
+//			last = i;
+//	}
+//	return last;
+//}
 
 static size_t LastSep(const std::string& p) {
 	const char* pp = p.c_str();

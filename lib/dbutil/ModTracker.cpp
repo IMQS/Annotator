@@ -46,7 +46,7 @@ Error ModTracker::Install(dba::Executor* ex) {
 	fMeta[0].Set("recid", dba::Type::Int64, 0, dba::TypeFlags::AutoIncrement | dba::TypeFlags::NotNull);
 	fMeta[1].Set("version", dba::Type::Int32, 0, dba::TypeFlags::NotNull);
 	fMeta[2].Set("identity", dba::Type::Guid, 0, dba::TypeFlags::NotNull);
-	err = writer->CreateTable(ex, "", "modtrack_meta", arraysize(fMeta), fMeta, {"recid"});
+	err = writer->CreateTable(ex, "modtrack_meta", arraysize(fMeta), fMeta, {"recid"});
 	if (!err.OK()) {
 		if (dba::IsRelationAlreadyExists(err)) {
 			// This means somebody has beaten us to it.
@@ -64,11 +64,11 @@ Error ModTracker::Install(dba::Executor* ex) {
 	fTables[1].Set("tablename", dba::Type::Text, 0, dba::TypeFlags::NotNull);
 	fTables[2].Set("createcount", dba::Type::Int64, 0, dba::TypeFlags::NotNull);
 	fTables[3].Set("stamp", dba::Type::Int64, 0, dba::TypeFlags::NotNull);
-	err = writer->CreateTable(ex, "", "modtrack_tables", arraysize(fTables), fTables, {"recid"});
+	err = writer->CreateTable(ex, "modtrack_tables", arraysize(fTables), fTables, {"recid"});
 	if (!err.OK())
 		return err;
 
-	err = writer->CreateIndex(ex, "", "modtrack_tables", "idx_modtrack_tables_tablename", true, {"tablename"});
+	err = writer->CreateIndex(ex, "modtrack_tables", "idx_modtrack_tables_tablename", true, {"tablename"});
 	if (!err.OK())
 		return err;
 
@@ -89,7 +89,7 @@ Error ModTracker::CheckInstallStatus(dba::Executor* ex, bool& isInstalled, int& 
 		return Error::Fmt("Unable to check if ModTracker is installed: database does not support SchemaReader");
 	dba::schema::DB db;
 	vector<string>  tables = {"modtrack_meta"};
-	auto            err    = reader->ReadSchema(0, ex, "", db, &tables);
+	auto            err    = reader->ReadSchema(0, ex, db, &tables, "");
 	if (!err.OK())
 		return err;
 
@@ -116,25 +116,43 @@ Error ModTracker::GetTableStamp(dba::Executor* ex, const std::string& table, Mod
 }
 
 Error ModTracker::GetTablesStamps(dba::Executor* ex, const std::vector<std::string>& tables, std::vector<ModStamp>& stamps) {
+	if (tables.size() == 0)
+		return Error();
+	return GetStampsInternal(ex, tables, nullptr, stamps);
+}
+
+// If limitTables is empty, then all tables are scanned.
+// If outTables is not null, then it is filled with the list of tables that were scanned.
+Error ModTracker::GetStampsInternal(dba::Executor* ex, const std::vector<std::string>& limitTables, std::vector<std::string>* outTables, std::vector<ModStamp>& stamps) {
+	if (limitTables.size() == 0 && outTables == nullptr)
+		return Error("Invalid use of GetStampsInternal. If limitTables is empty, then outTables must be defined");
+
+	if (outTables != nullptr && limitTables.size() != 0)
+		return Error("Invalid use of GetStampsInternal. If outTables is defined, then limitTables must be empty");
+
 	auto s = ex->Sql();
 	s.Fmt("SELECT 0 AS [type], dba_AsGUID([identity]), '' AS [tablename], 0 AS [createcount], 0 AS [stamp] FROM [modtrack_meta]");
 	s += "\n UNION \n";
-	s.Fmt("SELECT 1 AS [type], 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' AS [identity], [tablename], [createcount], dba_AsGUID([stamp]) FROM [modtrack_tables] WHERE [tablename] in (");
-	for (const auto& t : tables) {
-		s.Fmt("%q,", t);
+	s.Fmt("SELECT 1 AS [type], 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' AS [identity], [tablename], [createcount], dba_AsGUID([stamp]) FROM [modtrack_tables]");
+
+	if (limitTables.size() != 0) {
+		s.Fmt(" WHERE [tablename] in (");
+		for (const auto& t : limitTables) {
+			s.Fmt("%q,", t);
+		}
+		s.Chop();
+		s += ")";
 	}
-	s.Chop();
-	s += ")";
 
 	dba::sqlparser::InternalTranslator::BakeBuiltin_Select(s);
 
-	stamps.resize(tables.size());
+	stamps.resize(limitTables.size());
 	for (auto& st : stamps)
 		st = NotFound;
 
 	ohash::map<string, size_t> nameToIndex;
-	for (size_t i = 0; i < tables.size(); i++)
-		nameToIndex.insert(tables[i], i);
+	for (size_t i = 0; i < limitTables.size(); i++)
+		nameToIndex.insert(limitTables[i], i);
 
 	auto    rows        = ex->Query(s);
 	Guid    dbStamp     = Guid::Null();
@@ -168,9 +186,16 @@ Error ModTracker::GetTablesStamps(dba::Executor* ex, const std::vector<std::stri
 			stamp.QWords[0] = siphash24(h.Buf, h.Len, key1);
 			stamp.QWords[1] = siphash24(h.Buf, h.Len, key2);
 
-			if (!nameToIndex.contains(tableName))
-				return Error::Fmt("ModTracker::GetTablesStamps(): table '%v' not found in lookup list [%v]", tableName, strings::Join(tables, ","));
-			stamps[nameToIndex.get(tableName)] = stamp;
+			if (limitTables.size() == 0) {
+				// all tables
+				stamps.push_back(stamp);
+				outTables->push_back(tableName);
+			} else {
+				// limited tables
+				if (!nameToIndex.contains(tableName))
+					return Error::Fmt("ModTracker::GetTablesStamps(): table '%v' not found in lookup list [%v]", tableName, strings::Join(limitTables, ","));
+				stamps[nameToIndex.get(tableName)] = stamp;
+			}
 		}
 	}
 	if (!rows.OK()) {
@@ -180,6 +205,10 @@ Error ModTracker::GetTablesStamps(dba::Executor* ex, const std::vector<std::stri
 	}
 
 	return Error();
+}
+
+Error ModTracker::GetAllStamps(dba::Executor* ex, std::vector<std::string>& tables, std::vector<ModStamp>& stamps) {
+	return GetStampsInternal(ex, {}, &tables, stamps);
 }
 
 Error ModTracker::IncrementTableStamp(dba::Executor* ex, const std::string& table) {

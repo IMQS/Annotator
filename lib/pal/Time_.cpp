@@ -361,6 +361,13 @@ void Time::TimeComponents(int& hour, int& min, int& sec) const {
 	sec -= min * SecondsPerMinute;
 }
 
+Components Time::Components() const {
+	time::Components components;
+	DateComponents(components.Year, components.Month, components.Day, components.YearDay);
+	TimeComponents(components.Hour, components.Minute, components.Second);
+	return components;
+}
+
 time::Weekday Time::Weekday() const {
 	return AbsWeekday(Abs());
 }

@@ -20,7 +20,7 @@ static const char* StrValOrEmpty(const Attrib& a) {
 SqliteSchemaReader::SqliteSchemaReader() {
 }
 
-Error SqliteSchemaReader::ReadSchema(uint32_t readFlags, Executor* ex, std::string tableSpace, schema::DB& db, const std::vector<std::string>* restrictTables) {
+Error SqliteSchemaReader::ReadSchema(uint32_t readFlags, Executor* ex, schema::DB& db, const std::vector<std::string>* restrictTables, std::string tableSpace) {
 	if (restrictTables && restrictTables->size() == 0)
 		return Error();
 
@@ -326,13 +326,13 @@ void SqliteSchemaReader::ReadFieldType(const std::string& sql, schema::Field& fi
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Error SqliteSchemaWriter::DropTable(Executor* ex, std::string tableSpace, const std::string& table) {
+Error SqliteSchemaWriter::DropTable(Executor* ex, const std::string& table) {
 	auto s = ex->Sql();
 	s.Fmt("DROP TABLE %Q", table);
 	return ex->Exec(s);
 }
 
-Error SqliteSchemaWriter::CreateTable(Executor* ex, std::string tableSpace, const schema::Table& table) {
+Error SqliteSchemaWriter::CreateTable(Executor* ex, const schema::Table& table) {
 	auto s = ex->Sql();
 
 	if (table.IsView() || table.IsMaterializedView())
@@ -352,14 +352,14 @@ Error SqliteSchemaWriter::CreateTable(Executor* ex, std::string tableSpace, cons
 	if (!err.OK())
 		return err;
 
-	err = CreateTable_Indexes(ex, tableSpace, table);
+	err = CreateTable_Indexes(ex, table);
 	if (!err.OK())
 		return err;
 
 	return Error();
 }
 
-Error SqliteSchemaWriter::CreateIndex(Executor* ex, std::string tableSpace, const std::string& table, const schema::Index& idx) {
+Error SqliteSchemaWriter::CreateIndex(Executor* ex, const std::string& table, const schema::Index& idx) {
 	auto s = ex->Sql();
 	if (idx.IsSpatial) {
 		// Ignore spatial indexes, because we only use sqlite as a file interchange format
@@ -386,16 +386,16 @@ Error SqliteSchemaWriter::CreateIndex(Executor* ex, std::string tableSpace, cons
 	return ex->Exec(s);
 }
 
-Error SqliteSchemaWriter::AddField(Executor* ex, std::string tableSpace, const std::string& table, const schema::Field& field) {
+Error SqliteSchemaWriter::AddField(Executor* ex, const std::string& table, const schema::Field& field) {
 	// This is support by SQLite - I have just not had the need for it yet
 	return Error("SqliteSchemaWriter::AddField not implemented");
 }
 
-Error SqliteSchemaWriter::AlterField(Executor* ex, std::string tableSpace, const std::string& table, const schema::Field& srcField, const schema::Field& dstField) {
+Error SqliteSchemaWriter::AlterField(Executor* ex, const std::string& table, const schema::Field& existing, const schema::Field& target) {
 	return Error("SqliteSchemaWriter::AlterField not implemented");
 }
 
-Error SqliteSchemaWriter::DropField(Executor* ex, std::string tableSpace, const std::string& table, const std::string& field) {
+Error SqliteSchemaWriter::DropField(Executor* ex, const std::string& table, const std::string& field) {
 	// I don't think this is supported by SQLite
 	return Error("SqliteSchemaWriter::DropField not implemented");
 }

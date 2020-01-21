@@ -60,7 +60,7 @@ void RingTreeFinder::Analyze() {
 			if (Rings[i]->Area >= Rings[j]->Area)
 				continue;
 
-			auto iptFirst = Rings[i]->Vertices[0];
+			auto iptFirst   = Rings[i]->Vertices[0];
 			bool i_inside_j = PtInsidePoly(iptFirst.X, iptFirst.Y, Rings[j]->Vertices.size(), &Rings[j]->Vertices[0].X, 2);
 			if (i_inside_j) {
 				if (best_parent_index == -1 || Rings[j]->Area < Rings[best_parent_index]->Area)

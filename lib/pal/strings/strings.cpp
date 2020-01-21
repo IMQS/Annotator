@@ -91,7 +91,7 @@ IMQS_PAL_API std::string ToHex(const void* buf, size_t len) {
 	return s;
 }
 
-IMQS_PAL_API uint8_t FromHex8(char c) {
+IMQS_PAL_API uint8_t FromHexChar(char c) {
 	if (c >= '0' && c <= '9')
 		return c - '0';
 	if (c >= 'a' && c <= 'f')
@@ -101,8 +101,12 @@ IMQS_PAL_API uint8_t FromHex8(char c) {
 	return 0;
 }
 
-IMQS_PAL_API uint8_t FromHexPair(const char* s) {
-	return (FromHex8(s[0]) << 4) | FromHex8(s[1]);
+IMQS_PAL_API uint8_t FromHexByte(const char* s) {
+	return (FromHexChar(s[0]) << 4) | FromHexChar(s[1]);
+}
+
+IMQS_PAL_API uint8_t FromHexByte(char c1, char c2) {
+	return (FromHexChar(c1) << 4) | FromHexChar(c2);
 }
 
 IMQS_PAL_API std::string FromHex(const char* s, size_t len) {
@@ -112,7 +116,7 @@ IMQS_PAL_API std::string FromHex(const char* s, size_t len) {
 	r.resize(len / 2);
 
 	for (size_t i = 0; i < r.size(); i++, s += 2) {
-		r[i] = (char) FromHexPair(s);
+		r[i] = (char) FromHexByte(s);
 	}
 	return r;
 }
@@ -180,7 +184,7 @@ IMQS_PAL_API bool eqnocase(const char* a, const char* b) {
 		if (ca <= 127 && cb <= 127) {
 			// this branch is by far the most common, because the range 32..127 includes
 			// the standard characters, and digits, punctuation, etc
-			if (ToLowerTable[ca] != ToLowerTable[cb])
+			if (ToLowerTable[(unsigned) ca] != ToLowerTable[(unsigned) cb])
 				return false;
 		} else {
 			if (ToLowerCh(ca) != ToLowerCh(cb))
@@ -234,6 +238,18 @@ IMQS_PAL_API bool StartsWith(const std::string& s, const char* prefix) {
 			break;
 	}
 	return prefix[i] == 0;
+}
+
+IMQS_PAL_API bool EndsWith(const char* s, const char* suffix) {
+	auto len1 = strlen(s);
+	auto len2 = strlen(suffix);
+	if (len2 > len1)
+		return false;
+	for (size_t i = 0; i != len2; i++) {
+		if (s[len1 - len2 + i] != suffix[i])
+			return false;
+	}
+	return true;
 }
 
 IMQS_PAL_API bool EndsWith(const std::string& s, const char* suffix) {

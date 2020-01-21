@@ -4,6 +4,12 @@
 
 namespace imqs {
 
+#ifdef _WIN32
+static const char* PlatformNewLine = "\r\n";
+#else
+static const char* PlatformNewLine = "\n";
+#endif
+
 IMQS_PAL_API int64_t AtoI64(const char* s);
 IMQS_PAL_API size_t ItoA(int value, char* result, int base);       // Returns size of string, excluding null terminator. Max 12 bytes written (including null terminator), for base 10
 IMQS_PAL_API size_t I64toA(int64_t value, char* result, int base); // Returns size of string, excluding null terminator. Max 21 bytes written (including null terminator), for base 10
@@ -14,8 +20,10 @@ namespace strings {
 IMQS_PAL_API void ToHex(uint8_t val, char* out);                 // Does not add a null terminator
 IMQS_PAL_API void ToHex(const void* buf, size_t len, char* out); // Always adds a null terminator, so length of 'out' must be len * 2 + 1
 IMQS_PAL_API std::string ToHex(const void* buf, size_t len);
-IMQS_PAL_API std::string FromHex(const char* s, size_t len);
-IMQS_PAL_API uint8_t FromHex8(char c);                           // Convert one hex character to an integer
+IMQS_PAL_API std::string FromHex(const char* s, size_t len);     // Return a binary string buffer of decoded bytes from the hex string 's'
+IMQS_PAL_API uint8_t FromHexChar(char c);                        // Convert one hex character to an integer (returns 0..15)
+IMQS_PAL_API uint8_t FromHexByte(const char* s);                 // consumes s[0] and s[1] as a byte (s[0] is high 4 bytes, and s[1] is low 4 bytes)
+IMQS_PAL_API uint8_t FromHexByte(char c1, char c2);              // consumes c1 and c2 as a hex byte (c1 is high 4 bytes, and c2 is low 4 bytes)
 IMQS_PAL_API uint32_t FromHex32(const char* s, size_t len = -1); // Convert two characters at a time, starting at the front of the string.
 
 IMQS_PAL_API std::string tolower(const std::string& s);
@@ -30,6 +38,7 @@ IMQS_PAL_API std::string Replace(const std::string& s, const std::string& find, 
 
 IMQS_PAL_API bool StartsWith(const char* s, const char* prefix);
 IMQS_PAL_API bool StartsWith(const std::string& s, const char* prefix);
+IMQS_PAL_API bool EndsWith(const char* s, const char* suffix);
 IMQS_PAL_API bool EndsWith(const std::string& s, const char* suffix);
 
 IMQS_PAL_API std::string TrimLeft(const std::string& s);  // Trim whitespace (space, tab, newline, carriage return) from the left end of the string

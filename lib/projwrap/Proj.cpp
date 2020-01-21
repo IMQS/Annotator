@@ -40,6 +40,8 @@ struct Global {
 	int                          NextCustomSRID = -2; // Start at -2, because -1 often looks like an invalid value
 	StrToInt                     Proj_2_EPSG;         // Map from proj4 definition string to EPSG code
 	std::atomic<int32_t>         Proj_2_EPSG_State;
+
+	std::mutex LockParseWkt; // Guards access to GDAL functions for parsing WKT. See where it's used for details on why.
 };
 Global Glob;
 
@@ -106,6 +108,10 @@ PROJWRAP_API void Initialize() {
 	Glob.Proj_2_EPSG_State = (int32_t) BuildState::NotBuilt;
 }
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 6001) // MSVC /analyze thinks we're using uninitialized memory when cleaning up Glob.Proj_2_CustomSRID
+#endif
 PROJWRAP_API void Shutdown() {
 	InitCount--;
 	if (InitCount != 0)
@@ -123,6 +129,9 @@ PROJWRAP_API void Shutdown() {
 		free((void*) p.first);
 	}
 }
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 // Assume latlon coordinates are in decimal degrees
 PROJWRAP_API bool Convert(int srcSrid, int dstSrid, size_t nvertex, size_t stride, double* x, double* y, double* z, uint32_t convertFlags) {
@@ -223,25 +232,59 @@ PROJWRAP_API Error ParseWKT(const char* wkt, std::string* proj4, int* srid) {
 #ifdef IMQS_PROJWRAP_EXCLUDE_GDAL
 	return Error("projwrap has been compiled without GDAL support");
 #else
+	// Why do we need to take this mutex?
+	// On 15 July 2019, there was a crash on demo.imqs.co.za (Windows).
+	// The crash was caused by the windows kernel telling us that we were trying
+	// to unlock a mutex that we don't own.
+	// This was the stack trace:
+	//     ntdll.dll!RtlRaiseStatus()
+	//     ntdll.dll!RtlpNotOwnerCriticalSection()
+	//     ntdll.dll!RtlLeaveCriticalSection()
+	//     gdal201.dll!00007ff96c65bf6e()
+	//     gdal201.dll!00007ff96c65be50()
+	//     gdal201.dll!00007ff96c65c978()
+	//     gdal201.dll!00007ff96c642927()
+	//     gdal201.dll!00007ff96d527b34()
+	//     projwrap.dll!imqs::projwrap::ParseWKT(const char * wkt, std::basic_string<char,std::char_traits<char>,std::allocator<char> > * proj4, int * srid)	C++
+	//     MapServer.exe!imqs::maps::bcf::BCFImage::GetGeo(imqs::maps::GeoAffine & affine, std::basic_string<char,std::char_traits<char>,std::allocator<char> > & proj4)	C++
+	//     MapServer.exe!imqs::maps::TileReprojector::GenerateBlockFromImage(imqs::hash::Sig16 sigBase, int targetSRID, imqs::maps::bcf::BCFImage * srcImage, __int64 z, imqs::geom2d::BBox2<__int64> genBlock, mapnik::image<mapnik::rgba8_t> & outRGBA)	C++
+	//     MapServer.exe!imqs::maps::style::ConvertToMapnik_Raster(imqs::maps::style::RenderContext & cx, imqs::maps::style::ToMapnikLayerContext & layerCX, mapnik::layer & l, mapnik::Map & m)	C++
+	//     MapServer.exe!imqs::maps::VectorTileServer::AddRasterLayer(imqs::maps::style::RenderContext & cx, unsigned __int64 layerIndex, const imqs::maps::style::Layer & srcLayer, mapnik::Map & m)	C++
+	//     MapServer.exe!imqs::maps::VectorTileServer::RenderLayersToMapnik(imqs::maps::style::RenderContext & cx, imqs::maps::style::Theme & theme, unsigned __int64 themeIndex, mapnik::Map & m)	C++
+	//     MapServer.exe!imqs::maps::VectorTileServer::SendTile(phttp::Response & w, std::shared_ptr<phttp::Request> request, int srid, const std::basic_string<char,std::char_traits<char>,std::allocator<char> > & themeName, const std::basic_string<char,std::char_traits<char>,std::allocator<char> > & requestedVersion, const std::basic_string<char,std::char_traits<char>,std::allocator<char> > & imgType, __int64 z, __int64 x, __int64 y)	C++
+	//     MapServer.exe!imqs::maps::TileServer::SendTile(phttp::Response & w, std::shared_ptr<phttp::Request> request, const std::basic_string<char,std::char_traits<char>,std::allocator<char> > & theme, const std::basic_string<char,std::char_traits<char>,std::allocator<char> > & version, const std::basic_string<char,std::char_traits<char>,std::allocator<char> > & imgType, __int64 z, __int64 x, __int64 y)	C++
+	//
+	// As an attempted workaround, I have added this mutex.
+	// Who knows... maybe this issue has already been fixed in later GDAL versions, or on Linux.
+	// I didn't take the time to try and reproduce the issue, but if it is solved by this mutex,
+	// then I would expect it to be fairly easy to reproduce.
+	//
+
 	OGRSpatialReference srs;
-	//auto  ogrErr = srs.importFromESRI(&src); // This crashes, reading low memory. When I was debugging it, I didn't have debug symbols for GDAL, so not sure why the crash.
+	string              p4;
+
+	{
+		std::lock_guard<std::mutex> lock(Glob.LockParseWkt);
+		//auto  ogrErr = srs.importFromESRI(&src); // This crashes, reading low memory. When I was debugging it, I didn't have debug symbols for GDAL, so not sure why the crash.
 #if GDAL_VERSION_NUM < 2030000
-	char* src    = const_cast<char*>(wkt);
-	auto  ogrErr = srs.importFromWkt(&src);
+		char* src    = const_cast<char*>(wkt);
+		auto  ogrErr = srs.importFromWkt(&src);
 #else
-	auto ogrErr = srs.importFromWkt(&wkt);
+		auto ogrErr = srs.importFromWkt(&wkt);
 #endif
-	if (ogrErr != OGRERR_NONE)
-		return Error::Fmt("Error decoding BCF SRS: %v", ogrErr);
 
-	srs.AutoIdentifyEPSG();
+		if (ogrErr != OGRERR_NONE)
+			return Error::Fmt("Error decoding BCF SRS: %v", ogrErr);
 
-	char* p4z = nullptr;
-	ogrErr    = srs.exportToProj4(&p4z);
-	if (ogrErr != OGRERR_NONE)
-		return Error::Fmt("Error translating BCF SRS to proj4: %v", ogrErr);
-	string p4 = p4z;
-	CPLFree(p4z);
+		srs.AutoIdentifyEPSG();
+
+		char* p4z = nullptr;
+		ogrErr    = srs.exportToProj4(&p4z);
+		if (ogrErr != OGRERR_NONE)
+			return Error::Fmt("Error translating BCF SRS to proj4: %v", ogrErr);
+		p4 = p4z;
+		CPLFree(p4z);
+	}
 	p4 = strings::Trim(p4);
 
 	if (proj4)

@@ -15,8 +15,8 @@ public:
 	ASTCache();
 	~ASTCache();
 
-	// Retreive an AST for the SQL string.
-	// If successful, you must call ReleastAST() when finished
+	// Retrieve an AST for the SQL string.
+	// If successful, you must call ReleaseAST() when finished
 	const SqlAST* GetAST(const char* src, std::string& error);
 
 	// This is a variant of GetAST which adds a dummy "WHERE" prefix,
@@ -42,6 +42,6 @@ private:
 	static SqlAST* ParseAndValidate(int srcPrefixSize, const char* src, std::string* error = nullptr);
 	static bool    ValidateAST(const SqlAST* ast, std::string* error);
 };
-}
-}
-}
+} // namespace sqlparser
+} // namespace dba
+} // namespace imqs

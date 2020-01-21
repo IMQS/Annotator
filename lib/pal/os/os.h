@@ -41,14 +41,15 @@ IMQS_PAL_API void Sleep(imqs::time::Duration d);
 
 IMQS_PAL_API Error Stat(const std::string& path, FileAttributes& attribs);
 IMQS_PAL_API bool  PathExists(const std::string& path);
-IMQS_PAL_API bool  IsDir(const std::string& path);     // Returns true if Stat(path) reveals that this is a directory
-IMQS_PAL_API bool  IsFile(const std::string& path);    // Returns true if Stat(path) reveals that this is a file
-IMQS_PAL_API bool  IsExist(Error err);                 // Returns true if the error indicates that a path already exists
-IMQS_PAL_API bool  IsNotExist(Error err);              // Returns true if the error indicates that a path does not exist
-IMQS_PAL_API Error MkDir(const std::string& dir);      // Create a directory
-IMQS_PAL_API Error MkDirAll(const std::string& dir);   // Create a directory and all ancestors. Returns OK if the directory already exists.
-IMQS_PAL_API Error Remove(const std::string& path);    // Delete the file or directory (if empty)
-IMQS_PAL_API Error RemoveAll(const std::string& path); // Delete directory or file. If directory, deletes all contents, recursively. Returns the first error it encounters, or nil if no error, or path does not exist.
+IMQS_PAL_API bool  IsDir(const std::string& path);                         // Returns true if Stat(path) reveals that this is a directory
+IMQS_PAL_API bool  IsFile(const std::string& path);                        // Returns true if Stat(path) reveals that this is a file
+IMQS_PAL_API bool  IsExist(Error err);                                     // Returns true if the error indicates that a path already exists
+IMQS_PAL_API bool  IsNotExist(Error err);                                  // Returns true if the error indicates that a path does not exist
+IMQS_PAL_API Error MkDir(const std::string& dir);                          // Create a directory
+IMQS_PAL_API Error MkDirAll(const std::string& dir);                       // Create a directory and all ancestors. Returns OK if the directory already exists.
+IMQS_PAL_API Error Remove(const std::string& path);                        // Delete the file or directory (if empty)
+IMQS_PAL_API Error RemoveAll(const std::string& path);                     // Delete directory or file. If directory, deletes all contents, recursively. Returns the first error it encounters, or nil if no error, or path does not exist.
+IMQS_PAL_API Error Rename(const std::string& src, const std::string& dst); // Rename file or directory
 
 // Read the whole file.
 // If successful, buf contains the file contents, allocated with malloc.
@@ -120,5 +121,22 @@ template <typename... Args>
 void Trace(const char* format_str, const Args&... args) {
 	TraceStr(tsf::fmt(format_str, args...).c_str());
 }
+
+// Process management
+struct IMQS_PAL_API Process {
+#ifdef _WIN32
+#else
+	pid_t PID = 0;
+#endif
+	bool HasExited = false;
+	int  ExitCode  = 0; // Only valid if IsExited = true
+
+	bool    IsAlive();
+	int     WaitForExit();  // Waits for exit, and returns process exit code. If process has already died, returns exit code. Can be called multiple times.
+	int64_t IntPID() const; // Depends on OS. For Linux, it is the PID. For Windows, perhaps process handle, cast to int64?
+};
+
+IMQS_PAL_API Error StartProcess(const std::string& executable, const std::vector<std::string>& args, Process& proc);
+
 } // namespace os
 } // namespace imqs

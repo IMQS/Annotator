@@ -4,7 +4,11 @@ namespace imqs {
 
 static IMQS_NORETURN void Die() {
 	IMQS_DEBUG_BREAK();
+#ifdef __clang__
+	__builtin_trap();
+#else
 	*((int*) 0) = 1;
+#endif
 }
 
 static const char* NoErrorMsg = "";

@@ -8,7 +8,7 @@
 
 namespace imqs {
 
-static Guid ZeroGuid = {0};
+static Guid ZeroGuid;
 
 Guid Guid::CreateInsecure() {
 	return InternalCreate(false);
@@ -56,7 +56,7 @@ Guid Guid::Null() {
 
 void Guid::ToString(char* buf) const {
 	sprintf(buf, "%08X-%04hX-%04hX-%02hX%02hX-%02hX%02hX%02hX%02hX%02hX%02hX",
-	        MS.Data1, MS.Data2, MS.Data3,
+	        (uint32_t) MS.Data1, MS.Data2, MS.Data3,
 	        (unsigned short) MS.Data4[0], (unsigned short) MS.Data4[1], (unsigned short) MS.Data4[2], (unsigned short) MS.Data4[3],
 	        (unsigned short) MS.Data4[4], (unsigned short) MS.Data4[5], (unsigned short) MS.Data4[6], (unsigned short) MS.Data4[7]);
 }
@@ -68,9 +68,11 @@ std::string Guid::ToString() const {
 }
 
 bool Guid::ParseString(const char* buf) {
+	if (buf[0] == '{')
+		buf++;
 	unsigned short v[8];
 	int            cv = sscanf(buf, "%08X-%04hX-%04hX-%02hX%02hX-%02hX%02hX%02hX%02hX%02hX%02hX",
-                    &MS.Data1, &MS.Data2, &MS.Data3,
+                    (uint32_t*) &MS.Data1, &MS.Data2, &MS.Data3,
                     &v[0], &v[1], &v[2], &v[3],
                     &v[4], &v[5], &v[6], &v[7]);
 	if (cv != 11)

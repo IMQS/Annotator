@@ -109,10 +109,10 @@ void JsonSchemas::Install(const char* schemaName, const char* schema) {
 	rapidjson::Document sd;
 	if (sd.Parse(schema).HasParseError()) {
 		auto offset = (unsigned) sd.GetErrorOffset();
-		auto msg = GetParseError_En(sd.GetParseError());
+		auto msg    = GetParseError_En(sd.GetParseError());
 		fprintf(stderr, "\"Failed to parse schema(offset %u): %s\n",
-			offset,
-			msg);
+		        offset,
+		        msg);
 		IMQS_ASSERT(false);
 	}
 	Schemas.insert(schemaName, new rapidjson::SchemaDocument(sd));

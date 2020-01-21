@@ -35,15 +35,33 @@ Error TempTable::StoreRows(const std::vector<std::string>& fields, Rows& rows, c
 	auto   queryCols = rows.GetColumns();
 	size_t nfield    = std::max(fields.size(), queryCols.size());
 
+	vector<size_t> dst2Src; // Map from Column index in 'this', to source column from 'rows'.
+
 	for (size_t i = 0; i < nfield; i++) {
-		Columns.push_back(PackedColumn());
+		string colName;
 		if (i < fields.size())
-			NameToIndex.insert(fields[i], i + 1);
+			colName = fields[i];
 		else
-			NameToIndex.insert(queryCols[i].Name, i + 1);
+			colName = queryCols[i].Name;
+
+		if (NameToIndex.contains(colName)) {
+			// This path was first created for the IMQS Asset Register "mirror" importer, where a join across
+			// 3 tables would produce a field called ComponentID, which appeared 3 times in the query result.
+			// One might be tempted, in this situation, to return an error. However, in this original
+			// "Asset Mirror" case, it was clear that it was better not to produce an error, but to silently
+			// work around this issue. In the Asset Mirror case, the 3 instances of the ComponentID field
+			// all contain the same data, so it's not a problem to throw away columns, because they're
+			// duplicates anyway. You could make the argument that other queries ought to abide by the
+			// same restriction (ie same column name = same data).
+			continue;
+		}
+
+		dst2Src.push_back(i);
+		NameToIndex.insert(colName, Columns.size() + 1); // NameToIndex is a 1-based index, so that 0 is special (i.e. null)
+		Columns.push_back(PackedColumn());
 
 		if (i < fieldTypes.size()) {
-			Columns[i].SetType(fieldTypes[i]);
+			Columns.back().SetType(fieldTypes[i]);
 		} else {
 			// This branch is trickier than you'd think.
 			// When reading Sqlite databases, the rows.GetColumns() call cannot determine the exact type of
@@ -56,17 +74,18 @@ Error TempTable::StoreRows(const std::vector<std::string>& fields, Rows& rows, c
 			// PackedColumn to pick the first concrete geometry type it sees (eg Point). So in this case,
 			// we rather inform it to expect any type of geometry up front.
 			// Another alternative would be to add special logic inside PackedColumn, so that it can transition
-			// from a concrete geometry type such as Point, to GeomAny, if it seems a combination of different
+			// from a concrete geometry type such as Point, to GeomAny, if it sees a combination of different
 			// geometry types coming in.
 			if (queryCols[i].Type == Type::GeomAny)
-				Columns[i].SetType(queryCols[i].Type);
+				Columns.back().SetType(queryCols[i].Type);
 		}
 	}
 
 	for (auto row : rows) {
-		for (size_t i = 0; i < nfield; i++) {
-			if (!Columns[i].Add(row[i]))
-				return Error::Fmt("Out of memory storing result in temporary table (%v records)", NextRow);
+		for (size_t i = 0; i < dst2Src.size(); i++) {
+			size_t srcCol = dst2Src[i];
+			if (!Columns[i].Add(row[srcCol]))
+				return Error::Fmt("Out of memory storing result in temporary table (at record %v)", NextRow);
 		}
 		Order.push_back(NextRow++);
 	}
@@ -208,6 +227,9 @@ bool TempTable::ResolveFieldName(std::string& field) const {
 }
 
 bool TempTable::RenameField(const std::string& oldname, const std::string& newname) {
+	if (oldname == newname)
+		return true;
+
 	size_t index = NameToIndex.get(oldname);
 	if (index == 0) {
 		// oldname not found
@@ -319,6 +341,10 @@ Error TempTable::AddRowsClean() {
 	}
 	IsPopulated = true;
 	return Error();
+}
+
+void TempTable::AddRowClean() {
+	Order.push_back(NextRow++);
 }
 
 Error TempTable::AddRow(const std::vector<std::string>& fields, const std::vector<Attrib>& values) {

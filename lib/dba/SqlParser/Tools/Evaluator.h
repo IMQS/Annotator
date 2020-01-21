@@ -15,6 +15,6 @@ public:
 private:
 	static int CompareAny(const Attrib& a, const Attrib& b);
 };
-}
-}
-}
+} // namespace sqlparser
+} // namespace dba
+} // namespace imqs

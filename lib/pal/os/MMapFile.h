@@ -29,6 +29,8 @@ public:
 	Error Open(const std::string& filename);   // Open a file for read-only access
 	Error Create(const std::string& filename); // Create a new file, or truncate an existing file
 
+	Error Length(int64_t& len) override { return io::Seeker::Length(len); }
+
 	int64_t  Length();
 	int64_t  Position() const { return Pos; }
 	bool     IsOpen() const;

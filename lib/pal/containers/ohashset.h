@@ -82,7 +82,7 @@ public:
 		return true;
 	}
 };
-}
+} // namespace ohash
 
 namespace std {
 template <typename T1, typename T2, typename T3, typename T4>
@@ -92,6 +92,6 @@ inline void swap(ohash::set<T1, T2, T3, T4>& a, ohash::set<T1, T2, T3, T4>& b) {
 	memcpy(&a, &b, sizeof(a));
 	memcpy(&b, tmp, sizeof(a));
 }
-}
+} // namespace std
 
 #endif

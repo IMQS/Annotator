@@ -326,6 +326,6 @@ int SqlTranslator::TableIndexFromModTableField(const TxInput& in, int fieldIndex
 	VERIFY(in.ModTab->GetJoinTable()->TranslateField(fieldIndexInModTable, raw_field, raw_tabPtr, raw_tab));
 	return raw_tab + 1;
 }
-}
+} // namespace adb
 
 #endif

@@ -127,5 +127,5 @@ public:
 	MemPool();
 	~MemPool();
 };
-}
-}
+} // namespace dba
+} // namespace imqs

@@ -72,17 +72,24 @@ private:
 // InlineHashBuilder is a collection of helper functions that assist
 // in adding state to an incremental hash function.
 // eg
-//  char digest[16];
-//  InlineHashBuilder<hash::SpookyV2> hb;
+//  InlineHashBuilder<hash::SpookyV2, hash::Sig16> hb;
 //  hb.Add("foobar");
-//  hb.Final(digest);
-template <typename THash>
+//  return hb.Final();
+template <typename THash, typename TDigest>
 class InlineHashBuilder {
 public:
 	THash Hash;
 
+	static_assert(sizeof(TDigest) == THash::HashLen, "Hash size must match digest size");
+
 	void Final(void* digest) {
 		Hash.Final(digest);
+	}
+
+	TDigest Final() {
+		TDigest d;
+		Final(&d);
+		return d;
 	}
 
 	template <typename T>

@@ -18,6 +18,8 @@ IMQS_DBA_API void GetPolyVertices(const Attrib& geom, size_t part, std::vector<g
 IMQS_DBA_API void GetPolyVertices(const Attrib& geom, size_t part, std::vector<gfx::Vec4d>& v);
 
 IMQS_DBA_API double Distance2D(const Attrib& g1, const Attrib& g2);
+IMQS_DBA_API bool   PtInsidePoly(const Attrib& poly, double x, double y);
+IMQS_DBA_API double Area(const Attrib& poly);
 
 } // namespace geom
 } // namespace dba

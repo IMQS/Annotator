@@ -65,6 +65,8 @@ public:
 	~TempTable();
 
 	// Store one or more fields into an empty TempTable
+	// If there are duplicate column names, then any column after the first
+	// is discarded. Column names are case sensitive.
 	Error StoreRows(const std::vector<std::string>& fields, Rows& rows, const std::vector<Type>& fieldTypes = {});
 
 	// Store one or more fields from a FlatFile into an empty TempTable
@@ -84,6 +86,7 @@ public:
 	Attrib GetByIndex(size_t field, size_t rec, Allocator* alloc = nullptr) const;            // Fetch a copy of an attribute
 	void   GetDeep(const char* field, size_t rec, Attrib& tmp) const;                         // Fetch a temporary attribute that points deep inside our memory
 	bool   IsNullByIndex(size_t field, size_t rec) const;                                     // Returns true if the attribute is null
+	bool   IsColumnNull(const std::string& field) const;                                      // Returns true if every record in the column is null. Also returns true when the column does not exist.
 	Attrib Get(const char* field, size_t rec, Allocator* alloc = nullptr) const;              // Fetch a copy of an attribute
 	void   Set(const char* field, size_t rec, const Attrib& val);                             // Set a value
 	void   SetByIndex(size_t field, size_t rec, const Attrib& val);                           // Set a value
@@ -97,6 +100,7 @@ public:
 	Error  Add(const char* field, const Attrib& val);                                         // Add a new row to an existing field.
 	void   AddByIndex(size_t field, const Attrib& val);                                       // Add a new row to an existing field.
 	Error  AddRowsClean();                                                                    // Add rows after populating Columns. See instructions for "How to build up a TempTable manually"
+	void   AddRowClean();                                                                     // Add a single row after populating columns.
 	Error  AddRow(const std::vector<std::string>& fields, const std::vector<Attrib>& values); // Add one row. Not intended to be fast. For speed, read main instructions.
 	void   EraseRows(size_t n, const size_t* rows);                                           // Erase zero or more rows. This involves a memory bump of 'Order', so it is best to batch up calls to EraseRows(). You can also just manipulate Order yourself.
 	void   EraseRows(const std::vector<size_t>& rows);                                        // Erase zero or more rows. This involves a memory bump of 'Order', so it is best to batch up calls to EraseRows(). You can also just manipulate Order yourself.
@@ -194,6 +198,13 @@ inline Error TempTable::Add(const char* field, const Attrib& val) {
 inline void TempTable::AddByIndex(size_t field, const Attrib& val) {
 	bool ok = Columns[field].Add(val);
 	IMQS_ASSERT(ok);
+}
+
+inline bool TempTable::IsColumnNull(const std::string& field) const {
+	size_t i = FieldIndex(field);
+	if (i == -1)
+		return true;
+	return Columns[i].IsAllNull();
 }
 
 } // namespace dba

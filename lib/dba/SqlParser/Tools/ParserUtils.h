@@ -12,6 +12,6 @@ enum class SqlStatementType {
 };
 
 IMQS_DBA_API SqlStatementType DetectStatementType(const char* sql);
-}
-}
-}
+} // namespace sqlparser
+} // namespace dba
+} // namespace imqs

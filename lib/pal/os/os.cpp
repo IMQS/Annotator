@@ -22,6 +22,7 @@ static const char SYSTEM_PATH_SPLITTER = ':';
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <dirent.h>
 // struct timespec st_mtim;  /* time of last modification */
 #define STAT_TIME(st, x) (st.st_##x##tim.tv_sec) + ((st.st_##x##tim.tv_nsec) * (1.0 / 1000000000))
@@ -31,6 +32,8 @@ static const char SYSTEM_PATH_SPLITTER = ':';
 #pragma warning(push)
 #pragma warning(disable : 4996) // deprecated POSIX API names (write vs _write, etc)
 #endif
+
+using namespace std;
 
 namespace imqs {
 namespace os {
@@ -110,7 +113,7 @@ IMQS_PAL_API Error ErrorFrom_GetLastError(DWORD err) {
 	    (LPSTR) &lpMsgBuf,
 	    0, nullptr);
 
-	snprintf(szBuf, sizeof(szBuf), "(%u) %s", err, (const char*) lpMsgBuf);
+	snprintf(szBuf, sizeof(szBuf), "(%u) %s", (uint32_t) err, (const char*) lpMsgBuf);
 	szBuf[sizeof(szBuf) - 1] = 0;
 	LocalFree(lpMsgBuf);
 
@@ -277,11 +280,25 @@ IMQS_PAL_API Error RemoveAll(const std::string& path) {
 	return err;
 }
 
+IMQS_PAL_API Error Rename(const std::string& src, const std::string& dst) {
+#ifdef _WIN32
+	if (_wrename(towide(src).c_str(), towide(dst).c_str()) == 0)
+		return Error();
+	return ErrorFrom_errno(errno);
+#else
+	if (rename(src.c_str(), dst.c_str()) == 0)
+		return Error();
+	return ErrorFrom_errno(errno);
+#endif
+}
+
 // NOTE: Initially, ReadWholeFile_Internal was shared between unix and Win32, but I kept getting crashes in MSVCRT
 // in the Windows version, which I could never understand. So I rewrote the Win32 version using native Win32 APIs.
 
 #ifdef _WIN32
 // This takes either buf_target or str_target.
+#pragma warning(push)
+#pragma warning(disable : 6386) // MSVC /analyze seems to make a mistake when we write the null terminator
 Error ReadWholeFile_Internal(const std::string& filename, void** buf_target, std::string* str_target, size_t& len) {
 	if (buf_target)
 		*buf_target = nullptr;
@@ -355,6 +372,7 @@ Error ReadWholeFile_Internal(const std::string& filename, void** buf_target, std
 	CloseHandle(fh);
 	return Error();
 }
+#pragma warning(pop)
 #else
 // This takes either buf_target or str_target.
 Error ReadWholeFile_Internal(const std::string& filename, void** buf_target, std::string* str_target, size_t& len) {
@@ -910,6 +928,78 @@ IMQS_PAL_API void TraceStr(const char* str) {
 	OutputDebugStringW(towide(str).c_str());
 #else
 	write(fileno(stdout), str, strlen(str));
+#endif
+}
+
+bool Process::IsAlive() {
+	if (HasExited)
+		return false;
+#ifdef _WIN32
+	IMQS_DIE();
+	return false;
+#else
+	int stat_val = 0;
+	if (waitpid(PID, &stat_val, WNOHANG) == PID) {
+		HasExited = true;
+		ExitCode  = WEXITSTATUS(stat_val);
+	}
+	return !HasExited;
+#endif
+}
+
+int Process::WaitForExit() {
+	if (HasExited)
+		return ExitCode;
+#ifdef _WIN32
+	IMQS_DIE();
+	return 1;
+#else
+	int stat_val = 0;
+	if (waitpid(PID, &stat_val, 0) == PID) {
+		HasExited = true;
+		ExitCode  = WEXITSTATUS(stat_val);
+	} else {
+		// What can we do here?
+	}
+	return ExitCode;
+#endif
+}
+
+int64_t Process::IntPID() const {
+#ifdef _WIN32
+	IMQS_DIE();
+	return 0;
+#else
+	return PID;
+#endif
+}
+
+IMQS_PAL_API Error StartProcess(const std::string& executable, const std::vector<std::string>& args, Process& proc) {
+#ifdef _WIN32
+	return Error("StartProcess not implemented");
+#else
+	pid_t pid = fork();
+	if (pid == 0) {
+		// We are the child process
+		vector<const char*> argv;
+		argv.push_back(executable.c_str());
+		for (const auto& a : args)
+			argv.push_back(a.c_str());
+		argv.push_back(nullptr);
+		execvp(executable.c_str(), (char**) &argv[0]);
+		// If we get here, then there was an error, so we print it to stdout, otherwise
+		// the caller is very much in the dark.
+		int syserr = errno;
+		tsf::print("StartProcess execvp(%v) failed: %v\n", executable, syserr);
+		exit(syserr);
+	} else if (pid == -1) {
+		// We are the parent process (error)
+		return ErrorFrom_errno(errno);
+	} else {
+		// We are the parent process (success)
+		proc.PID = pid;
+		return Error();
+	}
 #endif
 }
 

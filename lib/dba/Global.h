@@ -34,9 +34,13 @@ public:
 	sqlparser::ASTCache* ASTCache = nullptr;
 
 	// Open a connection to a database.
-	Error       Open(const ConnDesc& desc, Conn*& conn);
-	Error       Open(const std::string& desc, Conn*& conn);
-	SqlDialect* DriverDialect(const char* name); // This was exposed solely for the /crud/sql_translate API. When we remove that API, consider removing this too.
+	Error Open(const ConnDesc& desc, Conn*& conn);
+	Error Open(const std::string& desc, Conn*& conn);
+
+	// This was exposed solely for the /crud/sql_translate API. When we remove that API, consider removing this too.
+	// Although... It is now used by SqlOverlay in etl too, in order to get hold of the SQLite dialect. So I guess
+	// that validates this as a useful API.
+	SqlDialect* DriverDialect(const char* name);
 
 	// Open a flatfile.
 	// If create is true, then the file is created, or an existing file is truncated.

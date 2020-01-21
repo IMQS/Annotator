@@ -9,7 +9,7 @@ namespace dba {
 
 /* A linear array of attributes.
 
-You MUST use the container as the allocator for the attribs inside this container.
+WARNING: You MUST use the container as the allocator for the attribs inside this container.
 If you do not, then you will get memory leaks, because the attributes are never destroyed.
 
 AttribList uses RepeatCycleAllocator, which means that whenever Reset() is called,

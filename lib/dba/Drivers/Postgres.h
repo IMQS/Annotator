@@ -1,7 +1,7 @@
 #pragma once
 #include "Driver.h"
 #include "../Allocators.h"
-#include <postgresql/libpq-fe.h>
+#include <libpq/libpq-fe.h>
 #include "PostgresSchema.h"
 
 namespace imqs {

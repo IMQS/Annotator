@@ -93,8 +93,14 @@ public:
 	// If there is no ModTracker installed in the DB, then ErrNotInstalled is returned.
 	static Error GetTablesStamps(dba::Executor* ex, const std::vector<std::string>& tables, std::vector<ModStamp>& stamps);
 
+	// Get the stamps for all tables. The resulting 'tables' and 'stamps' vectors are parallel.
+	static Error GetAllStamps(dba::Executor* ex, std::vector<std::string>& tables, std::vector<ModStamp>& stamps);
+
 	static Error IncrementTableStamp(dba::Executor* ex, const std::string& table);
 	static Error IncrementTableStamps(dba::Executor* ex, const std::vector<std::string>& tables);
+
+private:
+	static Error GetStampsInternal(dba::Executor* ex, const std::vector<std::string>& limitTables, std::vector<std::string>* outTables, std::vector<ModStamp>& stamps);
 };
 } // namespace dbutil
 } // namespace imqs

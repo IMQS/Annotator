@@ -12,8 +12,6 @@ public:
 	char Separator = ',';
 	char Quote     = '"';
 
-	// 'r' must also implement io::Seeker. This is necessary to avoid being terrible inefficient. If we couldn't
-	// seek, then we'd need to read one byte at a time.
 	Decoder(io::Reader* r = nullptr);
 	~Decoder();
 

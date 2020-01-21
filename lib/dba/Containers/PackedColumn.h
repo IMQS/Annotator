@@ -21,10 +21,10 @@ public:
 	PackedColumn& operator=(const PackedColumn& b);
 	PackedColumn& operator=(PackedColumn&& b);
 
-	void   Reset();                // Clear and reset type to null
-	void   Clear();                // Discard all data, but preserve type
-	bool   Add(const Attrib& val); // Add an item to the end. Add() will automatically set the column type, the first time it sees a non-null object. Returns false if out of memory.
-	void   SetType(Type type);
+	void   Reset();                                              // Clear and reset type to null
+	void   Clear();                                              // Discard all data, but preserve type
+	bool   Add(const Attrib& val);                               // Add an item to the end. Add() will automatically set the column type, the first time it sees a non-null object. Returns false if out of memory.
+	void   SetType(Type type);                                   // Set the type. Can only be done when empty, or as a special case, to change from Geom___ to GeomAny
 	Attrib Get(size_t i, dba::Allocator* alloc = nullptr) const; // Retrieve a value
 	void   Set(size_t i, const Attrib& val);                     // Change an existing value
 	void   GetDeep(size_t i, Attrib& val) const;                 // Populate Attrib with a deep pointer. Use with caution. Pointers become invalid the moment this RecordSet is changed (eg with Add())

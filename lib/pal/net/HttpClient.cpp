@@ -536,10 +536,15 @@ Error Response::ToError() const {
 	auto msg = StatusCodeStr();
 	if (Body != "") {
 		msg += ". ";
-		if (Body.size() > 40)
-			msg += Body.substr(40) + "...";
+		if (Body.size() > 1000)
+			msg += Body.substr(0, 1000) + "...";
 		else
 			msg += Body;
+
+		if (msg[msg.size() - 1] == '\n') {
+			// This improves the appearance of logs
+			msg.erase(msg.end() - 1);
+		}
 	}
 	return Error(msg);
 }

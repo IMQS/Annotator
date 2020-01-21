@@ -13,6 +13,8 @@ template <typename TKey,
           typename TGetValFunc = getval_pair<TKey, TVal>>
 class map : public table<TKey, std::pair<TKey, TVal>, THashFunc, TGetKeyFunc, TGetValFunc> {
 public:
+	typedef TKey                                                        key_type;    // consistent with unordered_map
+	typedef TVal                                                        mapped_type; // consistent with unordered_map
 	typedef std::pair<TKey, TVal>                                       pair_type;
 	typedef table<TKey, pair_type, THashFunc, TGetKeyFunc, TGetValFunc> base;
 	typedef typename base::iterator                                     iterator;
@@ -59,6 +61,11 @@ public:
 			return base::mData[pos].second;
 		else
 			return TVal();
+	}
+
+	// Compatibility with unordered_map
+	TVal at(const TKey& Key) const {
+		return get(Key);
 	}
 
 	/// Get a pointer to an item in the map
@@ -114,7 +121,7 @@ public:
 		return !(*this == other);
 	}
 };
-}
+} // namespace ohash
 
 // It is not sufficient to rely on ohash::table's swap. We need to define one for ohash::map, despite the fact that it has the same state
 namespace std {
@@ -125,6 +132,6 @@ inline void swap(ohash::map<T1, T2, T3, T4, T5>& a, ohash::map<T1, T2, T3, T4, T
 	memcpy(&a, &b, sizeof(a));
 	memcpy(&b, tmp, sizeof(a));
 }
-}
+} // namespace std
 
 #endif

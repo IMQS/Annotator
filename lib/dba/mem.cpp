@@ -137,5 +137,5 @@ void MemPool::FreeGeom(void* p) {
 bool MemPool::IsInTlsfHeap(void* p) {
 	return ((uintptr_t) p - (uintptr_t) Heap) < (uintptr_t) TlsfHeapSize;
 }
-}
-}
+} // namespace dba
+} // namespace imqs

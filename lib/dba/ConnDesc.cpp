@@ -7,6 +7,21 @@ namespace imqs {
 namespace dba {
 
 Error ConnDesc::Parse(const char* s) {
+	// Special exception for sqlite DBs
+	// This won't cause any side-effect failures, provided we force driver names to be more than 1 character long.
+	// There is a comment warning about that inside Global.cpp
+	bool isWindowsPath = ((s[0] >= 'A' && s[0] <= 'Z') || (s[0] >= 'a' && s[0] <= 'z')) && (s[1] == ':') && (s[2] == '\\' || s[2] == '/');
+	bool isGenericPath = strstr(s, ":") == nullptr;
+
+	if (isWindowsPath || isGenericPath) {
+		auto ext = path::Extension(s);
+		if (strings::eqnocase(ext, ".sqlite")) {
+			Driver   = "sqlite3";
+			Database = s;
+			return Error();
+		}
+	}
+
 	// with certificates: driver:hostname:port:database:username:password:(server-cert:client-cert:client-key)
 	// This format is quite specific to Postgres, when using SSL. But if we ever need other things for other
 	// database types, then we can see how best to fit that in if and when.

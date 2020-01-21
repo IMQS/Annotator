@@ -35,6 +35,9 @@ void Event::Wait() {
 }
 
 bool Event::Wait(time::Duration duration) {
+	if (duration.Nanoseconds() == 0)
+		return WaitNoHang();
+
 	bool                         res = true;
 	std::unique_lock<std::mutex> lock(M);
 	if (duration == time::Infinite)
@@ -45,5 +48,14 @@ bool Event::Wait(time::Duration duration) {
 		Signalled = false;
 	return res;
 }
+
+bool Event::WaitNoHang() {
+	std::unique_lock<std::mutex> lock(M);
+	bool                         res = Signalled;
+	if (res && AutoReset)
+		Signalled = false;
+	return res;
 }
-}
+
+} // namespace sync
+} // namespace imqs

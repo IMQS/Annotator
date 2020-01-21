@@ -35,7 +35,7 @@ inline CreateTableFromFlatFileFlags& operator|=(CreateTableFromFlatFileFlags& a,
 
 // Creates a table inside an SQL database which is a copy of the schema in the flatfile 'src'
 // tx may be null
-IMQS_DBA_API Error CreateTableFromFlatFile(FlatFile* src, Conn* dst, Tx* tx, std::string dstTableSpace, std::string dstTable, CreateTableFromFlatFileFlags flags);
+IMQS_DBA_API Error CreateTableFromFlatFile(FlatFile* src, Conn* dst, Tx* tx, std::string dstTable, CreateTableFromFlatFileFlags flags);
 } // namespace etl
 } // namespace dba
 } // namespace imqs

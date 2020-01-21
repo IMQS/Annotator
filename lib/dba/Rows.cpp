@@ -72,16 +72,18 @@ Error RowIterator::Next() {
 	}
 	Error err = _Rows->DRows->NextRow();
 	if (!err.OK()) {
+		// Free our DB connection. This is important for typical error-free use cases, where you iterate
+		// the result of a query, and then the 'rows' object is still in scope. If you then execute
+		// another query in that same scope, dba needs a free connection object. If we didn't release our
+		// DB connection here, then dba would need to open another one.
+		// Note that Reset() asserts on DeadWithError.OK(), so we must call Reset() before calling SetDead()
+		_Rows->Reset(nullptr, nullptr);
+
 		// Set RowNum to -1 so that we become equal to Rows::end()
 		if (err == ErrEOF)
 			RowNum = -1;
 		else
 			SetDead(err);
-		// Free our DB connection. This is important for typical error-free use cases, where you iterate
-		// the result of a query, and then the 'rows' object is still in scope. If you then execute
-		// another query in that same scope, dba needs a free connection object. If we didn't release our
-		// DB connection here, then dba would need to open another one.
-		_Rows->Reset(nullptr, nullptr);
 		return err;
 	}
 	RowNum++;

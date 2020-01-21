@@ -2,10 +2,17 @@
 
 // These are includes that are common to gfx compilation, as well as anything that imports gfx
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 28020)
+#endif
 #include <cmath>
 #include <limits>
 #include <lib/pal/pal.h>
 #include <turbojpeg.h>
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 #include <agg/include/agg_basics.h>
 #include <agg/include/agg_conv_stroke.h>

@@ -54,22 +54,8 @@ Conn* TestHelper::ConnectToTestDB(dba::ConnDesc desc, uint32_t connectFlags) {
 			tsf::print("Failed to install postgis in test db %v: %v\n", desc.ToString(), err.Message());
 		IMQS_ASSERT(err.OK());
 	} else {
-		if (!!(connectFlags & Connect_WipeTables)) {
-			// drop all tables
-			dba::schema::DB schema;
-			IMQS_ASSERT(con->SchemaReader()->ReadSchemaInTx(0, con, "", schema, nullptr).OK()); // read existing schema, so we can wipe existing DB
-			for (auto t : schema.TableNames()) {
-				auto tab = schema.TableByName(t);
-				if (tab->IsInternal())
-					continue;
-				auto s = con->Sql();
-				s.Fmt("DROP TABLE %Q", t);
-				err = con->Exec(s);
-				if (!err.OK())
-					tsf::print("Failed to drop table: %v\n", err.Message());
-				IMQS_ASSERT(err.OK());
-			}
-		}
+		if (!!(connectFlags & Connect_WipeTables))
+			WipeAllTables(con);
 	}
 
 	if (!!(connectFlags & Connect_InstallModTrack)) {
@@ -88,6 +74,30 @@ Conn* TestHelper::ConnectToTestDB(std::string dbName, uint32_t connectFlags) {
 	auto     err = d.Parse(TestDBConnStr(dbName).c_str());
 	IMQS_ASSERT(err.OK());
 	return ConnectToTestDB(d, connectFlags);
+}
+
+void TestHelper::WipeAllTables(dba::Conn* con) {
+	// drop all tables, from all schemas that we use or create
+	vector<string> schemaNames = {"", "schema1"};
+	for (auto tableSpace : schemaNames) {
+		// read existing schema, so we can wipe existing DB
+		// Note that it's generally much faster to wipe all tables, than to destroy and recreate the entire DB.
+		// Also, destroying and recreating the DB, on databases such as HANA or Oracle, is often extremely unpleasant,
+		// or even impossible from a piece of code like this.
+		dba::schema::DB schema;
+		IMQS_ASSERT(con->SchemaReader()->ReadSchemaInTx(0, con, schema, nullptr, tableSpace).OK());
+		for (auto t : schema.TableNames()) {
+			auto tab = schema.TableByName(t);
+			if (tab->IsInternal())
+				continue;
+			auto s = con->Sql();
+			s.Fmt("DROP TABLE %Q", t);
+			auto err = con->Exec(s);
+			if (!err.OK())
+				tsf::print("Failed to drop table: %v\n", err.Message());
+			IMQS_ASSERT(err.OK());
+		}
+	}
 }
 
 } // namespace dbutil
