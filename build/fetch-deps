@@ -26,7 +26,8 @@ sudo apt-get install -y \
 	libcurl4-openssl-dev \
 	uuid-dev \
 	libexpat1-dev \
-	libpq-dev
+	libpq-dev \
+	libssl-dev
 
 # Building glfw
 # sudo apt-get install -y xorg-dev

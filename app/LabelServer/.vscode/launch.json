@@ -23,8 +23,9 @@
                     "value": "${workspaceFolder}/../../t2-output/linux-clang-debug-default"
                 }
             ],
+            "preLaunchTask": "Build LabelServer",
             "externalConsole": false,
-            "MIMode": "gdb",
+            "MIMode": "lldb",
             "setupCommands": [
                 {
                     "description": "Enable pretty-printing for gdb",

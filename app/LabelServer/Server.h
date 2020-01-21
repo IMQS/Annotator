@@ -40,13 +40,21 @@ public:
 	static void SendFile(phttp::Response& w, std::string filename);
 
 private:
-	Error LoadDimensionsFile(std::string dimensionsFile);
-	Error ApiSetLabel(phttp::Response& w, phttp::RequestPtr r, dba::Tx* tx);
-	Error ApiGetLabels(phttp::Response& w, phttp::RequestPtr r, dba::Tx* tx);
-	Error ApiGetFolderSummary(phttp::Response& w, phttp::RequestPtr r, dba::Tx* tx);
-	void  ServeStatic(phttp::Response& w, phttp::RequestPtr r);
-	void  Report(phttp::Response& w, phttp::RequestPtr r);
-	void  Solve(phttp::Response& w, phttp::RequestPtr r);
+	std::mutex                                   PhotoSizeLock; // Guards access to PhotoSize
+	ohash::map<std::string, std::pair<int, int>> PhotoSize;     // Cache of photo sizes
+
+	Error      LoadDimensionsFile(std::string dimensionsFile);
+	Error      ApiSetLabel(phttp::Response& w, phttp::RequestPtr r, dba::Tx* tx);
+	Error      ApiGetLabels(phttp::Response& w, phttp::RequestPtr r, dba::Tx* tx);
+	Error      ApiGetFolderSummary(phttp::Response& w, phttp::RequestPtr r, dba::Tx* tx);
+	void       ServeStatic(phttp::Response& w, phttp::RequestPtr r);
+	void       Report(phttp::Response& w, phttp::RequestPtr r);
+	void       Solve(phttp::Response& w, phttp::RequestPtr r);
+	Error      GetImageSize(const std::string& image, std::pair<int, int>& size);
+	Error      DecodeRegion(const std::string& region, std::vector<gfx::Vec2d>& pts);
+	bool       IsRegionRectangular(const std::vector<gfx::Vec2d>& region);
+	gfx::RectD RegionBounds(const std::vector<gfx::Vec2d>& region);
+	Error      FindRectanglesOutsideImageBounds();
 };
 
 } // namespace label

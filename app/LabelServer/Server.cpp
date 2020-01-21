@@ -17,7 +17,7 @@ Example response from /api/db/get_labels:
 			}
 		},
 		"1": {
-			"region": "[[12,13,56,34,89,23]]",
+			"region": "[[[12,13,56,34,89,23]]]",
 			"dims": {
 				"traffic_sign": "stop",
 				"traffic_sign_quality": "2",
@@ -84,7 +84,7 @@ Error Server::Initialize(uberlog::Logger* log, std::string photoDir, std::string
 		photoDir.erase(photoDir.end() - 1);
 	PhotoRoot = photoDir;
 
-	Log->Info("Scanning photos in %v", photoDir);
+	Log->Info("Scanning datasets in %v", photoDir);
 
 	// Find all directories inside PhotoRoot. Each one of these is a 'dataset'
 	// We go one level deep.
@@ -103,15 +103,19 @@ Error Server::Initialize(uberlog::Logger* log, std::string photoDir, std::string
 	});
 	if (!err.OK())
 		return err;
+	Log->Info("Found %v datasets", AllDatasets.size());
 
+	Log->Info("Opening database");
 	err = DB.Open(log, photoDir);
 	if (!err.OK())
 		return err;
 
+	Log->Info("Loading dimensions file");
 	err = LoadDimensionsFile(dimensionsFile);
 	if (!err.OK())
 		return err;
 
+	Log->Info("Scanning photos in %v", photoDir);
 	AllPhotos.clear();
 	err = os::FindFiles(photoDir, [&](const os::FindFileItem& item) -> bool {
 		if (!item.IsDir) {
@@ -127,6 +131,11 @@ Error Server::Initialize(uberlog::Logger* log, std::string photoDir, std::string
 		return err;
 	sort(AllPhotos.begin(), AllPhotos.end());
 	Log->Info("Found %v photos in %v", AllPhotos.size(), photoDir);
+
+	//err = FindRectanglesOutsideImageBounds();
+	//if (!err.OK())
+	//	return err;
+
 	return Error();
 }
 
@@ -255,13 +264,31 @@ Error Server::ApiSetLabel(phttp::Response& w, phttp::RequestPtr r, dba::Tx* tx) 
 	auto intensity = r->QueryDbl("intensity");
 	auto author    = r->QueryVal("author");
 	if (image == "")
-		return Error("image not be empty");
+		return Error("image may not be empty");
 
 	if (dim == "")
 		return Error("dimension may not be empty");
 
 	if (author == "")
 		return Error("author may not be empty");
+
+	if (region != "") {
+		// If it's a rectangular region, then make sure it fits inside the image bounds
+		vector<gfx::Vec2d> pts;
+		auto               err = DecodeRegion(region, pts);
+		if (!err.OK())
+			return err;
+		if (IsRegionRectangular(pts)) {
+			auto           bounds = RegionBounds(pts);
+			pair<int, int> imgSize;
+			err = GetImageSize(image, imgSize);
+			if (!err.OK())
+				return err;
+			if (bounds.x1 < 0 || bounds.y1 < 0 || bounds.x2 >= imgSize.first || bounds.y2 >= imgSize.second)
+				return Error::Fmt("Rectangular region (%f,%f - %f,%f) extends beyond the image bounds  (%f,%f - %f,%f)",
+				                  bounds.x1, bounds.y1, bounds.x2, bounds.y2, 0, 0, imgSize.first, imgSize.second);
+		}
+	}
 
 	// See the truth table in the comments to this function
 	enum class RegionMode {
@@ -560,6 +587,112 @@ void Server::Solve(phttp::Response& w, phttp::RequestPtr r) {
 	}
 
 	SendJson(w, jDoc);
+}
+
+Error Server::GetImageSize(const std::string& image, std::pair<int, int>& size) {
+	{
+		lock_guard<mutex> lock(PhotoSizeLock);
+		if (PhotoSize.contains(image)) {
+			size = PhotoSize.get(image);
+			return Error();
+		}
+	}
+
+	gfx::ImageIO io;
+	string       fullpath = path::SafeJoin(PhotoRoot, image);
+	auto         err      = io.LoadJpegFileHeader(fullpath, &size.first, &size.second);
+	if (!err.OK())
+		return Error::Fmt("Failed to get size of %v: %v", fullpath, err.Message());
+
+	lock_guard<mutex> lock(PhotoSizeLock);
+	PhotoSize.insert(image, size);
+
+	return Error();
+}
+
+Error Server::DecodeRegion(const std::string& region, std::vector<gfx::Vec2d>& pts) {
+	if (region.size() < 9)
+		return Error::Fmt("Invalid region: '%v' (too short)", region);
+
+	if (region.substr(0, 3) != "[[[" || region.substr(region.size() - 3, 3) != "]]]")
+		return Error::Fmt("Invalid region: '%v' (expected [[[...]]])", region);
+
+	auto numbers = strings::Split(region.substr(3, region.size() - 6), ',');
+	if (numbers.size() % 2 != 0 || numbers.size() < 6)
+		return Error::Fmt("Invalid region: '%v' (there must be at least 3 pairs of numbers)");
+
+	for (size_t i = 0; i < numbers.size(); i += 2) {
+		gfx::Vec2d v;
+		v.x = atof(numbers[i].c_str());
+		v.y = atof(numbers[i + 1].c_str());
+		pts.push_back(v);
+	}
+
+	return Error();
+}
+
+bool Server::IsRegionRectangular(const std::vector<gfx::Vec2d>& region) {
+	if (region.size() != 4)
+		return false;
+	// For every pair of adjacent vertices, there must be a difference in exactly one
+	// of the two dimensions x and y. We can use XOR to check this.
+	size_t j = region.size() - 1;
+	for (size_t i = 0; i < region.size(); i++) {
+		int xdiff = region[i].x != region[j].x ? 1 : 0;
+		int ydiff = region[i].y != region[j].y ? 1 : 0;
+		if ((xdiff ^ ydiff) != 1)
+			return false;
+		j = i;
+	}
+	return true;
+}
+
+gfx::RectD Server::RegionBounds(const std::vector<gfx::Vec2d>& region) {
+	gfx::RectD r = gfx::RectD::Inverted();
+	for (const auto& v : region)
+		r.ExpandToFit(v.x, v.y);
+	return r;
+}
+
+// I had to run this once, after deciding that we would not longer allow rectangular
+// regions to extend beyond the dimensions of the image. By adding this constraint,
+// we speed up training, because the system generating the training patches doesn't
+// need to know the image size. If we allow rectangular patches to extend beyond the
+// image bounds, then we'd be trying to generate patches outside of the actual image.
+Error Server::FindRectanglesOutsideImageBounds() {
+	Log->Info("Identifying rectangular regions outside of image bounds");
+	//dba::Tx* tx  = nullptr;
+	//auto     err = DB.DB->Begin(tx);
+	//if (!err.OK())
+	//	return Error::Fmt("Error starting transaction: %v", err.Message());
+	auto rows = DB.DB->Query("SELECT image_path, region FROM sample WHERE region NOT NULL AND region <> ''");
+	for (auto row : rows) {
+		string image_path;
+		string region;
+		auto err = row.Scan(image_path, region);
+		if (!err.OK())
+			return err;
+		if (region == "")
+			continue;
+		vector<gfx::Vec2d> pts;
+		err = DecodeRegion(region, pts);
+		if (!err.OK())
+			return err;
+		if (IsRegionRectangular(pts)) {
+			pair<int, int> imgSize;
+			err = GetImageSize(image_path, imgSize);
+			if (!err.OK())
+				return err;
+			auto bounds = RegionBounds(pts);
+			if (bounds.x1 < 0 || bounds.y1 < 0 || bounds.x2 >= imgSize.first || bounds.y2 >= imgSize.second) {
+				tsf::print("Rectangle out of image bounds: %v\n", image_path);
+			}
+		}
+	}
+	if (!rows.OK())
+		return rows.Err();
+	//tx->Rollback();
+	return Error();
 }
 
 } // namespace label

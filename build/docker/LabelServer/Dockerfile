@@ -42,19 +42,21 @@ RUN apt-get update && apt-get install -y \
   uuid-dev \
   libexpat1-dev \
   libpq-dev \
+  libssl-dev \
   libturbojpeg0-dev \
+  libsqlite3-dev \
   g++ \
   build-essential \
   git \
   make \
   clang \
   gcc \
-  curl
+  curl \
+  unzip
 
-# TODO: Squash these down
-RUN apt-get install -y unzip
-RUN curl -o libtorch.zip https://download.pytorch.org/libtorch/cu101/libtorch-cxx11-abi-shared-with-deps-1.3.1.zip
-RUN unzip -d /usr/local libtorch.zip
+RUN curl -o libtorch.zip https://download.pytorch.org/libtorch/cu101/libtorch-cxx11-abi-shared-with-deps-1.3.1.zip \
+  && unzip -d /usr/local libtorch.zip \
+  && rm libtorch.zip
 
 RUN git clone --depth 1 --single-branch --recurse-submodules https://github.com/deplinenoise/tundra.git /build/tundra \
   && cd /build/tundra \
@@ -77,7 +79,8 @@ RUN apt-get update && apt-get install -y \
   libpq5 \
   libunwind8 \
   libcurl4 \
-  libpng16-16
+  libpng16-16 \
+  libturbojpeg
 
 #RUN ldconfig
 

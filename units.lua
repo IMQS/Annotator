@@ -1011,7 +1011,7 @@ local LabelServer = Program {
 	Name = "LabelServer",
 	Depends = {
 		--winCrt, Video, dbutil, dba, projwrap, phttp, uberlog, tsf, gfx, pal, sqlite
-		winCrt, dbutil, dba, projwrap, phttp, uberlog, tsf, gfx, pal, sqlite,
+		winCrt, dbutil, dba, projwrap, phttp, uberlog, tsf, gfx, pal, sqlite, libjpeg_turbo, png, stb,
 		CUDA, torch, rpathLink -- We need to link with rpath in order to allow libraries such as libmkl_intel_lp64.so to be discovered
 	},
 	Env = {

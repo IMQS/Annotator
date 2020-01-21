@@ -5,6 +5,7 @@
 #include <lib/pal/pal.h>
 #include <lib/dba/dba.h>
 #include <lib/dbutil/dbutil.h>
+#include <lib/gfx/gfx.h>
 
 #include <torch/script.h>
 #include <torch/torch.h>
