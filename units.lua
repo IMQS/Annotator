@@ -404,15 +404,17 @@ local rpathLink = ExternalLibrary {
 }
 
 -- Download libtorch from the official PyTorch website, and extract it into /usr/local/libtorch
--- Version used here: 1.3.1
+-- Version used here: 1.4.1
 local torch_root = "/usr/local/libtorch" 
 
 local deploy_libtorch_set = {}
 deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libc10_cuda.so", linuxFilter)
 deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libc10.so", linuxFilter)
+deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libcaffe2_nvrtc.so", linuxFilter)
 deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libtorch.so", linuxFilter)
 deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libgomp-753e6e92.so.1", linuxFilter)
 deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libnvToolsExt-3965bdd0.so.1", linuxFilter)
+deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libnvrtc-5e8a26c9.so.10.1", linuxFilter)
 deploy_libtorch_set[#deploy_libtorch_set + 1] = copyfile_to_output(torch_root .. "/lib/libcudart-1b201d85.so.10.1", linuxFilter)
 
 local torch = ExternalLibrary {
@@ -565,6 +567,15 @@ local directx = ExternalLibrary {
 			{ "D3D11.lib", "d3dcompiler.lib"; Config = "win*" },
 		},
 	},
+}
+
+local colorspace = StaticLibrary {
+	Name = "colorspace",
+	Depends = { winCrt, },
+	Sources = {
+		makeGlob("third_party/colorspace/src", {})
+	},
+	IdeGenerationHints = ideHintThirdParty,
 }
 
 -- collection of stb libraries
@@ -926,7 +937,7 @@ local RoadProcessor = Program {
 	Name = "RoadProcessor",
 	Depends = {
 		--winCrt, Video, gfx, opencv, ffmpeg, pal, libjpeg_turbo, png, stb, tsf, agg, glfw, lz4, proj4
-		winCrt, Video, gfx, opencv, ffmpeg, torch, CUDA, pal, libjpeg_turbo, png, stb, tsf, agg, lz4, proj4,
+		winCrt, Video, gfx, opencv, ffmpeg, torch, CUDA, pal, libjpeg_turbo, png, stb, tsf, agg, lz4, proj4, colorspace,
 		rpathLink -- We need to link with rpath in order to allow libraries such as libmkl_intel_lp64.so to be discovered
 	},
 	Env = {

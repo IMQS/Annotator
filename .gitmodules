@@ -34,3 +34,9 @@
 [submodule "third_party/libdivide"]
 	path = third_party/libdivide
 	url = https://github.com/ridiculousfish/libdivide.git
+[submodule "third_party/avir"]
+	path = third_party/avir
+	url = https://github.com/avaneev/avir.git
+[submodule "third_party/colorspace"]
+	path = third_party/colorspace
+	url = https://github.com/berendeanicolae/ColorSpace.git

@@ -10,7 +10,8 @@ using namespace std;
 namespace imqs {
 namespace roadproc {
 
-const string ApiBase = "http://roads.imqs.co.za/api";
+const static string BaseUrl = "http://roads.imqs.co.za";
+const static string ApiBase = BaseUrl + "/api";
 
 static Error GetTracks(http::Connection& con, string& sessionCookie, string speedFile, string trackFile) {
 	//nlohmann::json speed;
@@ -63,7 +64,7 @@ Error DoAuto(argparse::Args& args) {
 	}
 
 	http::Connection client;
-	err = global::Login(client, username, password, sessionCookie);
+	err = global::Login(client, BaseUrl, username, password, sessionCookie);
 	if (!err.OK())
 		return err;
 

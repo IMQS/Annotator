@@ -8,47 +8,42 @@ using namespace std;
 namespace imqs {
 namespace roadproc {
 
-char RoadTypeToChar(RoadTypes t) {
-	switch (t) {
-	case RoadTypes::Gravel: return 'g';
-	case RoadTypes::Ignore: return 'i';
-	case RoadTypes::JeepTrack: return 'j';
-	case RoadTypes::Tar: return 't';
-	case RoadTypes::NONE:
-		IMQS_DIE();
-		return ' ';
-	}
-}
+static Error FindPhotosOnServer(std::string baseUrl, std::string client, std::string prefix, std::vector<std::string>& photoUrls) {
+	if (baseUrl == "")
+		return Error("FindPhotosOnServer: BaseURL is empty");
 
-string PhotoProcessor::BaseUrl = "http://roads.imqs.co.za";
-
-static Error FindPhotosOnServer(std::string client, std::string prefix, std::vector<std::string>& photoUrls) {
 	// the LIKE statement on the API side looks like this:
 	//   like := "gs://roadphoto.imqs.co.za/" + client + "/" + prefix + "%%"
 
-	// eg curl http://roads.imqs.co.za/api/ph/list_photos?client=za.nl.um.--&prefix=2019/2019-02-27/164GOPRO
+	// eg curl http://roads.imqs.co.za/api/ph/photos?client=za.nl.um.--&prefix=2019/2019-02-27/164GOPRO
 
-	string                     api = PhotoProcessor::BaseUrl + "/api/ph/list_photos?";
+	string                     api = baseUrl + "/api/ph/photos?";
 	ohash::map<string, string> q   = {
         {"client", client},
         {"prefix", prefix},
     };
+	string fullUrl = api + url::Encode(q);
 
-	auto resp = http::Client::Get(api + url::Encode(q));
+	auto resp = http::Client::Get(fullUrl);
 	if (!resp.Is200()) {
 		// This is often the first error that you'll see from this system, so we add extra detail
-		return Error::Fmt("Error fetching photos from %v: %v", api, resp.ToError().Message());
+		return Error::Fmt("Error fetching photos from %v: %v", fullUrl, resp.ToError().Message());
 	}
 
-	rapidjson::Document jroot;
-	auto                err = rj::ParseString(resp.Body, jroot);
+	nlohmann::json jroot;
+	auto           err = nj::ParseString(resp.Body, jroot);
 	if (!err.OK())
 		return err;
-	if (!jroot.IsArray())
+	if (!jroot.is_array())
 		return Error("JSON response from list_photos is not an array");
-	for (size_t i = 0; i < jroot.Size(); i++) {
-		const auto& j = jroot[(rapidjson::SizeType) i];
-		photoUrls.push_back(rj::GetString(j, "URL"));
+	for (size_t i = 0; i < jroot.size(); i++) {
+		const auto& j = jroot[i];
+		if (j.find("Photo") == j.end()) {
+			tsf::print("Warning: JSON record has no 'Photo' member\n");
+			continue;
+		}
+		const auto& jPhoto = j["Photo"];
+		photoUrls.push_back(nj::GetString(jPhoto, "URL"));
 	}
 
 	return Error();
@@ -59,14 +54,18 @@ PhotoProcessor::PhotoProcessor() {
 	QDownloaded.Initialize(true);
 	QHaveRoadType.Initialize(true);
 	QDone.Initialize(true);
+
+	// Setup for tar_defects
+	Model = new TarDefectsModel();
+
 	bool debugMode = false;
 	if (debugMode) {
 		// reduce batch sizes for debugging
-		NumFetchThreads        = 1;
-		MaxQDownloaded         = 2;
-		RoadTypeBatchSize      = 2;
-		GravelQualityBatchSize = 2;
-		UploadBatchSize        = 2;
+		NumFetchThreads   = 1;
+		MaxQDownloaded    = 2;
+		RoadTypeBatchSize = 2;
+		//GravelQualityBatchSize = 2;
+		UploadBatchSize = 2;
 	}
 }
 
@@ -76,7 +75,8 @@ int PhotoProcessor::Run(argparse::Args& args) {
 	auto           client   = args.Params[2];
 	auto           prefix   = args.Params[3];
 	PhotoProcessor pp;
-	auto           err = pp.RunInternal(username, password, client, prefix, args.GetInt("resume"));
+	pp.BaseUrl = args.Get("server");
+	auto err   = pp.RunInternal(username, password, client, prefix, args.GetInt("resume"));
 	if (!err.OK()) {
 		tsf::print("Error: %v\n", err.Message());
 		return 1;
@@ -89,7 +89,7 @@ Error PhotoProcessor::RunInternal(string username, string password, string clien
 
 	tsf::print("Logging in\n");
 	http::Connection cx;
-	auto             err = global::Login(cx, username, password, SessionCookie);
+	auto             err = global::Login(cx, BaseUrl, username, password, SessionCookie);
 	if (!err.OK())
 		return err;
 
@@ -100,7 +100,7 @@ Error PhotoProcessor::RunInternal(string username, string password, string clien
 
 	tsf::print("Preparing photo queue\n");
 	vector<string> photoUrls;
-	err = FindPhotosOnServer(client, prefix, photoUrls);
+	err = FindPhotosOnServer(BaseUrl, client, prefix, photoUrls);
 	if (!err.OK())
 		return err;
 	tsf::print("Found %v photos to process, starting at %v\n", photoUrls.size(), startAt);
@@ -135,6 +135,7 @@ Error PhotoProcessor::RunInternal(string username, string password, string clien
 	while (QNotStarted.Size() != 0 || QDownloaded.Size() != 0 || QHaveRoadType.Size() != 0 || QDone.Size() != 0) {
 		os::Sleep(50 * time::Millisecond);
 	}
+	tsf::print("Finished\n");
 	// set the Finished flag, to signal all threads to exit
 	Finished = true;
 	for (int i = 0; i < 100; i++) {
@@ -151,8 +152,9 @@ Error PhotoProcessor::RunInternal(string username, string password, string clien
 }
 
 void PhotoProcessor::FetchThread() {
-	http::Connection cx;
-	gfx::ImageIO     imgIO;
+	http::Connection      cx;
+	gfx::ImageIO          imgIO;
+	avir::CImageResizer<> resizer(8, 0, avir::CImageResizerParamsDef());
 
 	while (!Finished) {
 		QNotStarted.SemaphoreObj().wait();
@@ -186,37 +188,65 @@ void PhotoProcessor::FetchThread() {
 			continue;
 		}
 
-		// The max resolution that we use is 1/4 of the original 4000x3000 GoPro image, so we can get the
-		// JPEG library to assist with that downscaling efficiently.
+		// We can get TurboJPEG to perform some downsampling for us, which is very cheap.
+		// I've tested it on a single image, comparing to using AVIR to resize it from the original 4000x3000, and I can't
+		// tell the difference between using JPEG 1/2 res and full res (ie both of these use AVIR to perform the final
+		// downsampling). So we use the JPEG 1/2 or 1/4 res, because it's way more efficient.
+		int   jpegFactor = 1;
+		auto  cropParams = Model->CropParams;
+		float resFactor  = (float) 4000 / (float) cropParams.TargetWidth;
+		if (resFactor >= 4)
+			jpegFactor = 4;
+		else if (resFactor >= 2)
+			jpegFactor = 2;
+
 		int   width  = 0;
 		int   height = 0;
 		void* rgba   = nullptr;
-		auto  err    = imgIO.LoadJpegScaled(resp.Body.data(), resp.Body.size(), 4, width, height, rgba, TJPF_RGBA);
+		auto  err    = imgIO.LoadJpegScaled(resp.Body.data(), resp.Body.size(), jpegFactor, width, height, rgba, TJPF_RGBA);
 		if (!err.OK()) {
 			tsf::print("Failed to decode %v: %v\n", err.Message());
 			delete job;
 			continue;
 		}
-		if (width != 1000 || height != 750) {
-			tsf::print("Expected image to be 4000 x 3000, but image is %v x %v\n", width * 4, height * 4);
+		if (width != 4000 / jpegFactor || height != 3000 / jpegFactor) {
+			tsf::print("Expected input image to be 4000 x 3000, but image is %v x %v\n", width * jpegFactor, height * jpegFactor);
 			delete job;
 			continue;
 		}
-		gfx::Image quarter(gfx::ImageFormat::RGBA, gfx::Image::ConstructTakeOwnership, width * 4, rgba, width, height);
+		gfx::Image raw(gfx::ImageFormat::RGBA, gfx::Image::ConstructWindow, width * 4, rgba, width, height);
+		//raw.SavePng("/home/ben/viz/raw.png", true, 1);
+
+		if (width != cropParams.TargetWidth) {
+			resFactor          = (float) width / (float) cropParams.TargetWidth;
+			uint8_t* src       = (uint8_t*) rgba;
+			int      srcStride = width * 4;
+			int      srcHeight = int((float) cropParams.TargetHeight * resFactor);
+			src += height * srcStride;                                     // move to bottom of image
+			src -= int(cropParams.BottomDiscard / jpegFactor) * srcStride; // discard bottom pixels
+			src -= srcHeight * srcStride;                                  // move up, to produce the actual number of input pixels
+			uint8_t*                resized = (uint8_t*) imqs_malloc_or_die(cropParams.TargetWidth * cropParams.TargetHeight * 4);
+			avir::CImageResizerVars p;
+			p.UseSRGBGamma = true;
+			resizer.resizeImage(src, width, srcHeight, width * 4, resized, cropParams.TargetWidth, cropParams.TargetHeight, 4, 0, &p);
+			free(rgba);
+			rgba   = resized;
+			width  = cropParams.TargetWidth;
+			height = cropParams.TargetHeight;
+		}
+
+		gfx::Image ready(gfx::ImageFormat::RGBA, gfx::Image::ConstructTakeOwnership, width * 4, rgba, width, height);
+		//gfx::Image quarter(gfx::ImageFormat::RGBA, gfx::Image::ConstructTakeOwnership, width * 4, rgba, width, height);
 		//auto       quarter = half.HalfSizeSIMD();
 		// crop, preserving only the bottom 1/3 of the frame
 		//auto halfCrop    = half.Window(0, half.Height - 500, half.Width, 500);
-		auto quarterCrop = quarter.Window(0, quarter.Height - 256, quarter.Width, 256);
-		//job->RGB_2000_500 = ImgToTensor(halfCrop);
-		job->RGB_1000_256 = ImgToTensor(quarterCrop);
+		//auto quarterCrop = quarter.Window(0, quarter.Height - 256, quarter.Width, 256);
+		//ready.SavePng("/home/ben/viz/scaled-2.png", true, 1);
+		job->RGB = ImgToTensor(ready);
 
-		while (QDownloaded.Size() > MaxQDownloaded) {
-			if (Finished)
-				break;
-			os::Sleep(50 * time::Millisecond);
-		}
 		tsf::print("Decoded %4d %v\n", job->InternalID, job->PhotoURL);
-		QDownloaded.Push(job);
+
+		PushToQueue(QDownloaded, MaxQDownloaded, job);
 	}
 }
 
@@ -224,10 +254,11 @@ void PhotoProcessor::RoadTypeThread() {
 	http::Connection cx;
 	gfx::ImageIO     imgIO;
 
-	torch::Tensor     batch  = torch::empty({RoadTypeBatchSize, 3, 256, 1000});
-	int               ibatch = 0; // number of elements in the batch
-	vector<PhotoJob*> batchJobs;  // the jobs inside this batch
-	batchJobs.resize(RoadTypeBatchSize);
+	torch::Tensor     batch;
+	vector<PhotoJob*> batchJobs; // the jobs inside this batch
+
+	if (EnableRoadType)
+		batch = torch::empty({RoadTypeBatchSize, 3, 256, 1000});
 
 	while (!Finished) {
 		QDownloaded.SemaphoreObj().wait();
@@ -237,17 +268,21 @@ void PhotoProcessor::RoadTypeThread() {
 
 		// null job means a pipeline flush
 
-		if (job) {
-			auto t            = job->RGB_1000_256.permute({2, 0, 1}); // HWC -> CHW
-			batchJobs[ibatch] = job;
-			batch[ibatch]     = t;
-			ibatch++;
+		if (job && EnableRoadType) {
+			auto t                  = job->RGB.permute({2, 0, 1}); // HWC -> CHW
+			batch[batchJobs.size()] = t;
+			batchJobs.push_back(job);
 		}
 
-		if ((!job || ibatch == RoadTypeBatchSize) && ibatch != 0) {
+		if (!EnableRoadType) {
+			QHaveRoadType.Push(job);
+			continue;
+		}
+
+		if ((!job || batchJobs.size() == RoadTypeBatchSize) && batchJobs.size() != 0) {
 			torch::NoGradGuard nograd;
 			GPULock.lock();
-			auto res = MRoadType->forward({batch.cuda()}).toTensor().cpu();
+			auto res = MRoadType.forward({batch.cuda()}).toTensor().cpu();
 			GPULock.unlock();
 			auto amax = torch::argmax(res, 1);
 			// res shape is [4,3] (BC)
@@ -255,20 +290,18 @@ void PhotoProcessor::RoadTypeThread() {
 			//DumpPhotos(batchJobs);
 			//tsf::print("res shape: %v\n", SizeToString(res.sizes()));
 			//tsf::print("amax shape: %v\n", SizeToString(amax.sizes()));
-			for (int i = 0; i < ibatch; i++) {
-				batchJobs[i]->RoadType = (RoadTypes) amax[i].item().toInt();
+			for (size_t i = 0; i < batchJobs.size(); i++) {
+				batchJobs[i]->RoadType = (RoadTypeModel::Types) amax[i].item().toInt();
 				//tsf::print("Road Type: %v\n", (int) batchJobs[i]->RoadType);
-				while (QHaveRoadType.Size() >= MaxQHaveRoadType) {
-					os::Sleep(50 * time::Millisecond);
-				}
-				QHaveRoadType.Push(batchJobs[i]);
+				PushToQueue(QHaveRoadType, MaxQHaveRoadType, batchJobs[i]);
 			}
-			ibatch = 0;
+			batchJobs.clear();
 		}
 	}
 }
 
-void PhotoProcessor::AssessmentThread() {
+/*
+void PhotoProcessor::AssessmentThread_Gravel() {
 	torch::Tensor     gravelBatch  = torch::empty({GravelQualityBatchSize, 3, 256, 1000});
 	int               iGravelBatch = 0; // number of elements in the batch
 	vector<PhotoJob*> gravelJobs;       // the jobs inside this batch
@@ -283,7 +316,7 @@ void PhotoProcessor::AssessmentThread() {
 		// null job means a pipeline flush
 
 		if (job && job->RoadType == RoadTypes::Gravel) {
-			auto t                    = job->RGB_1000_256.permute({2, 0, 1}); // HWC -> CHW
+			auto t                    = job->RGB.permute({2, 0, 1}); // HWC -> CHW
 			gravelJobs[iGravelBatch]  = job;
 			gravelBatch[iGravelBatch] = t;
 			iGravelBatch++;
@@ -296,7 +329,7 @@ void PhotoProcessor::AssessmentThread() {
 			torch::NoGradGuard    nograd;
 			GPULock.lock();
 			for (auto& m : Models)
-				results.push_back(m.Model->forward({batchCuda}).toTensor());
+				results.push_back(m.Model.forward({batchCuda}).toTensor());
 			GPULock.unlock();
 
 			// consume results
@@ -309,14 +342,48 @@ void PhotoProcessor::AssessmentThread() {
 			}
 
 			// send job to the next stage
-			for (int i = 0; i < iGravelBatch; i++) {
-				while (QDone.Size() >= MaxQDone) {
-					os::Sleep(50 * time::Millisecond);
-				}
-				QDone.Push(gravelJobs[i]);
-			}
+			for (int i = 0; i < iGravelBatch; i++)
+				PushToQueue(QDone, MaxQDone, gravelJobs[i]);
 
 			iGravelBatch = 0;
+		}
+	}
+}
+*/
+
+void PhotoProcessor::AssessmentThread() {
+	torch::Tensor     batch = torch::empty({Model->BatchSize, 3, Model->CropParams.TargetHeight, Model->CropParams.TargetWidth});
+	vector<PhotoJob*> batchJobs; // the jobs inside this batch
+
+	while (!Finished) {
+		QHaveRoadType.SemaphoreObj().wait();
+		auto job = QHaveRoadType.PopTailR();
+		if (Finished)
+			break;
+
+		// null job means a pipeline flush
+
+		if (job) {
+			auto t                  = job->RGB.permute({2, 0, 1}); // HWC -> CHW
+			batch[batchJobs.size()] = t;
+			batchJobs.push_back(job);
+		}
+
+		if (batchJobs.size() == Model->BatchSize || (job == nullptr && batchJobs.size() != 0)) {
+			torch::NoGradGuard nograd;
+			auto               err = Model->Run(GPULock, batch, batchJobs);
+			if (!err.OK())
+				tsf::print("Error running model: %v\n", err.Message());
+
+			// send jobs to the next stage
+			for (size_t i = 0; i < batchJobs.size(); i++)
+				PushToQueue(QDone, MaxQDone, batchJobs[i]);
+			batchJobs.clear();
+		}
+
+		if (!job) {
+			// Push pipeline flush
+			PushToQueue(QDone, MaxQDone, nullptr);
 		}
 	}
 }
@@ -326,7 +393,15 @@ void PhotoProcessor::UploadThread() {
 	size_t         batchSize = 0;
 	nlohmann::json batch;
 
-	batch["ModelVersion"] = "1.0.0";
+	// Here is a little example of PNG compression rates for a small tar_defects analysis image:
+	// Bytes   Res  Level
+	// 25696 152x56-0.png
+	//   735 152x56-1.png
+	//   513 152x56-5.png
+	//   439 152x56-9.png
+
+	auto combinedModelVersion = Model->Meta.Version + "-" + Model->PostNNModelVersion;
+	batch["ModelVersion"]     = combinedModelVersion;
 
 	http::Connection cx;
 
@@ -337,20 +412,30 @@ void PhotoProcessor::UploadThread() {
 			break;
 
 		if (job) {
-			auto& photos       = batch["Photos"];
-			auto& photo        = photos[job->PhotoURL];
-			photo["road_type"] = RoadTypeToChar(job->RoadType);
-			auto& severity     = photo["Severity"];
-			for (size_t i = 0; i < Models.size(); i++)
-				severity[Models[i].Name] = job->Results[i];
+			auto& jphotos = batch["Photos"];
+			auto& jphoto  = jphotos[job->PhotoURL];
+			// If we were to run multiple models, then we could conceptually merge the JSON here.
+			// Alternatively, we could have multiple fields in the DB, one field for each model.
+			// So many ways.. such arbitrary decisions!
+			auto& jmodels     = jphoto["Models"];
+			auto& jmodel      = jmodels[Model->ModelName];
+			jmodel["Version"] = combinedModelVersion;
+			jmodel["Count"]   = job->DBOutput;
+			//tsf::print("Upload thread got %v\n", job->DBOutput.dump());
+			// This was the old code for the gravel road stuff
+			// photo["road_type"] = RoadTypeToChar(job->RoadType);
+			// auto& severity     = photo["Severity"];
+			// for (size_t i = 0; i < Models.size(); i++)
+			// 	severity[Models[i].Name] = job->Results[i];
 			batchSize++;
 		}
 
 		if (batchSize == UploadBatchSize || (job == nullptr && batchSize != 0)) {
 			for (int attempt = 0; true; attempt++) {
-				tsf::print("Upload #%v (%v, %v, %v, %v)\n", nUploads, QNotStarted.Size(), QDownloaded.Size(), QHaveRoadType.Size(), QDone.Size());
+				tsf::print("Upload #%v of %v photos. Queues: (%v, %v, %v, %v)\n", nUploads, batchSize, QNotStarted.Size(), QDownloaded.Size(), QHaveRoadType.Size(), QDone.Size());
 				auto req = http::Request::POST(PhotoProcessor::BaseUrl + "/api/ph/analysis");
 				req.AddCookie("session", SessionCookie);
+				tsf::print("Uploading %v\n", batch.dump());
 				req.Body = batch.dump();
 				auto res = cx.Perform(req);
 				if (res.Is200()) {
@@ -372,12 +457,6 @@ void PhotoProcessor::UploadThread() {
 }
 
 Error PhotoProcessor::LoadModels() {
-	Models.clear();
-	Models.resize(3);
-	Models[0].Name = "gravel_base_stones";
-	Models[1].Name = "gravel_elevation";
-	Models[2].Name = "gravel_undulations";
-
 	// launch from cmd line, dev time
 	string dir = "models";
 
@@ -392,6 +471,17 @@ Error PhotoProcessor::LoadModels() {
 	if (!os::PathExists(dir))
 		return Error("Unable to find models directory");
 
+	auto err = Model->Load(path::Join(dir, Model->ModelName));
+	if (!err.OK())
+		return err;
+
+	/*
+	Models.clear();
+	Models.resize(3);
+	Models[0].Name = "gravel_base_stones";
+	Models[1].Name = "gravel_elevation";
+	Models[2].Name = "gravel_undulations";
+
 	try {
 		MRoadType = torch::jit::load(path::Join(dir, "road_type.tm").c_str());
 		for (auto& m : Models)
@@ -399,7 +489,15 @@ Error PhotoProcessor::LoadModels() {
 	} catch (const exception& e) {
 		return Error(e.what());
 	}
+	*/
 	return Error();
+}
+
+void PhotoProcessor::PushToQueue(TQueue<PhotoJob*>& queue, int maxQueueSize, PhotoJob* job) {
+	while (queue.Size() >= maxQueueSize) {
+		os::Sleep(50 * time::Millisecond);
+	}
+	queue.Push(job);
 }
 
 void PhotoProcessor::DumpPhotos(std::vector<PhotoJob*> jobs) {
@@ -409,7 +507,7 @@ void PhotoProcessor::DumpPhotos(std::vector<PhotoJob*> jobs) {
 		fn        = strings::Replace(fn, ":", "-");
 		fn        = strings::Replace(fn, "/", "-");
 		fn        = path::Join(vizDir, fn);
-		TensorToImg(j->RGB_1000_256).SaveJpeg(fn, 90);
+		TensorToImg(j->RGB).SaveJpeg(fn, 90);
 	}
 }
 

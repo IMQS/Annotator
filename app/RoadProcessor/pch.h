@@ -45,6 +45,10 @@
 // Undefine ridiculous X11 macros
 #undef Bool
 #undef None
+#undef Success
 
 #include <torch/script.h>
 #include <torch/csrc/api/include/torch/utils.h>
+
+#include <avir/avir.h>
+#include <colorspace/src/ColorSpace.h>

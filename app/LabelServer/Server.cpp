@@ -284,7 +284,7 @@ Error Server::ApiSetLabel(phttp::Response& w, phttp::RequestPtr r, dba::Tx* tx) 
 			err = GetImageSize(image, imgSize);
 			if (!err.OK())
 				return err;
-			if (bounds.x1 < 0 || bounds.y1 < 0 || bounds.x2 >= imgSize.first || bounds.y2 >= imgSize.second)
+			if (bounds.x1 < 0 || bounds.y1 < 0 || bounds.x2 > imgSize.first || bounds.y2 > imgSize.second)
 				return Error::Fmt("Rectangular region (%f,%f - %f,%f) extends beyond the image bounds  (%f,%f - %f,%f)",
 				                  bounds.x1, bounds.y1, bounds.x2, bounds.y2, 0, 0, imgSize.first, imgSize.second);
 		}
@@ -669,7 +669,7 @@ Error Server::FindRectanglesOutsideImageBounds() {
 	for (auto row : rows) {
 		string image_path;
 		string region;
-		auto err = row.Scan(image_path, region);
+		auto   err = row.Scan(image_path, region);
 		if (!err.OK())
 			return err;
 		if (region == "")

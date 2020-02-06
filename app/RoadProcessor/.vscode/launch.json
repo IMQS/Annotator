@@ -61,6 +61,7 @@
             //    "0",
             //    "-0.000411",
             //],
+            "preLaunchTask": "Build RoadProcessor",
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [
@@ -70,14 +71,14 @@
                 }
             ],
             "externalConsole": false,
-            "MIMode": "gdb",
-            //"setupCommands": [
-            //    {
-            //        "description": "Enable pretty-printing for gdb",
-            //        "text": "-enable-pretty-printing",
-            //        "ignoreFailures": true
-            //    }
-            //]
+            "MIMode": "lldb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
         },
     ]
 }

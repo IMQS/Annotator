@@ -1,35 +1,25 @@
 #pragma once
 
+#include "PhotoJob.h"
+#include "AnalysisModel.h"
+#include "RoadType.h"
+#include "TarDefects.h"
+
 namespace imqs {
 namespace roadproc {
 
-enum class RoadTypes {
-	// PyTorch trainer sorts the classes alphabetically, so we just do the same here,
-	// and we don't need to worry about anything further.
-	Gravel,
-	Ignore,
-	JeepTrack,
-	Tar,
-	NONE,
-};
-
-char RoadTypeToChar(RoadTypes t);
-
-// This holds all the state of a photo, as it passes through the various analysis stages
-struct PhotoJob {
-	int64_t                InternalID = 0; // Just an arbitrary counter, to measure progress, and aid debugging. NOT the same as the server-side ID.
-	std::string            PhotoURL;
-	torch::Tensor          RGB_1000_256;               // RGB x 1000 x 256 (4x downscaled, then bottom 1/3 crop)
-	RoadTypes              RoadType = RoadTypes::NONE; // One of PhotoProcessor::RoadTypes
-	ohash::map<int, float> Results;                    // Results of the various quality models. Key is the model index, value is the assessment (typically 1..5)
-};
-
 struct PhotoModel {
-	std::string                                 Name; // This is the name of the model file. For example, "gravel_undulations"
-	std::shared_ptr<torch::jit::script::Module> Model;
+	std::string                Name; // This is the name of the model file. For example, "gravel_undulations"
+	torch::jit::script::Module Model;
 };
 
 // Road processor
+//
+// This was originally written to process the extremely simple models for umhlathuze which operate on the entire image,
+// and emit just a single number for a dimension, such as "gravel quality".
+//
+// Later, I extended it to be able to operate on the semantic segmentation model that emits tar defects.
+//
 // We run 4 thread pools. Each of them is a stage in a pipeline.
 // In other words, stage 1 must complete before stage 2 runs, and stage 2 must complete
 // before stage 3 runs, etc.
@@ -44,14 +34,15 @@ class PhotoProcessor {
 public:
 	// We should only need a single thread for each neural network phase, because a single thread can
 	// load up a bunch of sample in a batch
-	int NumFetchThreads      = 8; // Threads that download, decode, and create tensor
-	int NumRoadTypeThreads   = 1;
-	int NumAssessmentThreads = 1;
-	int NumUploadThreads     = 1;
-
-	static std::string BaseUrl;
-
-	std::atomic<bool> Finished;
+	//int             NumFetchThreads      = 8; // Threads that download, decode, and create tensor
+	int               NumFetchThreads      = 1; // HACK // Threads that download, decode, and create tensor
+	int               NumRoadTypeThreads   = 1;
+	int               NumAssessmentThreads = 1;
+	int               NumUploadThreads     = 1;
+	bool              EnableRoadType       = false;   // This isn't necessary for our tar_defects model
+	AnalysisModel*    Model                = nullptr; // The one and only analysis model. It wouldn't be hard to have a few models here, instead of just one.
+	std::string       BaseUrl;                        // URL where 'console' DB service is running (default from command line args is http://roads.imqs.co.za)
+	std::atomic<bool> Finished;                       // Toggled at the end of RunInternal(), after all queues have drained
 
 	PhotoProcessor();
 
@@ -60,30 +51,34 @@ public:
 	Error RunInternal(std::string username, std::string password, std::string client, std::string prefix, int startAt = 0);
 
 private:
-	std::shared_ptr<torch::jit::script::Module> MRoadType; // This is a special model, because the others depend on it
-	std::vector<PhotoModel>                     Models;
-	std::string                                 SessionCookie; // Cookie on roads.imqs.co.za
-	std::mutex                                  GPULock;       // Keep memory predictable by only running one model at a time
+	torch::jit::script::Module MRoadType;     // This is a special model, because the others depend on it
+	std::string                SessionCookie; // Cookie on roads.imqs.co.za
+	std::mutex                 GPULock;       // Keep memory predictable by only running one model at a time
 
-	TQueue<PhotoJob*> QNotStarted;                 // Jobs that have not been started yet
-	TQueue<PhotoJob*> QDownloaded;                 // Jobs that have been downloaded, and decoded into a Tensor, and uploaded into CUDA memory
-	TQueue<PhotoJob*> QHaveRoadType;               // Jobs that have had the RoadType model run on them, so we know if they're tar/gravel/etc
-	TQueue<PhotoJob*> QDone;                       // Jobs that have had all applicable assessment evaluations run on them
-	int               MaxQDownloaded         = 64; // Max number of jobs in the Downloaded queue
-	int               MaxQHaveRoadType       = 64; // Max number of jobs in the HaveRoadType queue
-	int               MaxQDone               = 64; // Max number of jobs in the Done queue
-	int               RoadTypeBatchSize      = 8;  // GPU batch size for road type model
-	int               GravelQualityBatchSize = 8;  // GPU batch size for all of the gravel road quality models
-	int               UploadBatchSize        = 8;  // This isn't a GPU batch - this is a JSON batch for HTTP sending
-	int               MaxDownloadAttempts    = 5;  // Max download attempts before giving up. We continue trying others
-	int               MaxUploadAttempts      = 5;  // Max upload attempts before giving up. If we fail, then we abort the entire process.
+	//std::vector<PhotoModel>    Models;
 
-	void FetchThread();
-	void RoadTypeThread();
-	void AssessmentThread();
-	void UploadThread();
+	TQueue<PhotoJob*> QNotStarted;              // Jobs that have not been started yet
+	TQueue<PhotoJob*> QDownloaded;              // Jobs that have been downloaded, and decoded into a torch Tensor
+	TQueue<PhotoJob*> QHaveRoadType;            // Jobs that have had the RoadType model run on them, so we know if they're tar/gravel/etc
+	TQueue<PhotoJob*> QDone;                    // Jobs that have had all applicable assessment evaluations run on them
+	int               MaxQDownloaded      = 64; // Max number of jobs in the Downloaded queue
+	int               MaxQHaveRoadType    = 64; // Max number of jobs in the HaveRoadType queue
+	int               MaxQDone            = 64; // Max number of jobs in the Done queue
+	int               RoadTypeBatchSize   = 8;  // GPU batch size for road type model
+	int               UploadBatchSize     = 8;  // This isn't a GPU batch - this is a JSON batch for sending results to HTTP
+	int               MaxDownloadAttempts = 5;  // Max download attempts before giving up. We continue trying others
+	int               MaxUploadAttempts   = 5;  // Max upload attempts before giving up. If we fail, then we abort the entire process.
 
+	// Old dead code
+	//int               GravelQualityBatchSize = 8;  // GPU batch size for all of the gravel road quality models
+	//void  AssessmentThread_Gravel();
+
+	void  FetchThread();
+	void  RoadTypeThread();
+	void  AssessmentThread();
+	void  UploadThread();
 	Error LoadModels();
+	void  PushToQueue(TQueue<PhotoJob*>& queue, int maxQueueSize, PhotoJob* job);
 
 	static void DumpPhotos(std::vector<PhotoJob*> jobs);
 };

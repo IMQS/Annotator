@@ -7,6 +7,18 @@ using namespace std;
 namespace imqs {
 namespace roadproc {
 
+char RoadTypeModel::TypeToChar(Types t) {
+	switch (t) {
+	case Types::Gravel: return 'g';
+	case Types::Ignore: return 'i';
+	case Types::JeepTrack: return 'j';
+	case Types::Tar: return 't';
+	case Types::NONE:
+		IMQS_DIE();
+		return ' ';
+	}
+}
+
 Error RoadTypeModel::Load(std::string filename) {
 	try {
 		Model = torch::jit::load(filename.c_str());
@@ -16,7 +28,7 @@ Error RoadTypeModel::Load(std::string filename) {
 	return Error();
 }
 
-Error RoadTypeModel::Classify(const gfx::Image& _img, Type& type) {
+Error RoadTypeModel::Classify(const gfx::Image& _img, Types& type) {
 	if (_img.Format != gfx::ImageFormat::RGBA && _img.Format != gfx::ImageFormat::RGBAP)
 		return Error("Image must be RGBA");
 
@@ -42,13 +54,13 @@ Error RoadTypeModel::Classify(const gfx::Image& _img, Type& type) {
 	//tsf::print("%v\n", SizeToString(t.sizes()));
 	t = t.reshape(sh);
 	//tsf::print("input shape: %v\n", SizeToString(t.sizes()));
-	auto res = Model->forward({t}).toTensor().cpu();
+	auto res = Model.forward({t}).toTensor().cpu();
 	res.squeeze_();
 	tsf::print("output shape: %v\n", SizeToString(res.sizes()));
 	tsf::print("output: %v\n", SmallTensorToString(res, "%3.2f"));
 	auto am = torch::argmax(res).item().toInt();
-	IMQS_ASSERT(am >= 0 && am <= 2);
-	type = (Type) am;
+	IMQS_ASSERT(am >= 0 && am <= 3);
+	type = (Types) am;
 
 	return Error();
 }
@@ -81,7 +93,7 @@ int RoadTypeModel::Test(argparse::Args& args) {
 	auto classify = [&](string filename) {
 		gfx::Image img;
 		img.LoadFile(filename);
-		RoadTypeModel::Type rt;
+		RoadTypeModel::Types rt;
 		err = rtm.Classify(img, rt);
 		//tsf::print("%v: %v\n", filename, (int) rt);
 	};

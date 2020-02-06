@@ -18,8 +18,8 @@ gfx::Vec3d ConvertLLToMerc(const gfx::Vec3d& p) {
 	return p;
 }
 
-Error Login(http::Connection& con, std::string username, std::string password, std::string& sessionCookie) {
-	http::Request req = http::Request::POST("http://roads.imqs.co.za/api/auth/login");
+Error Login(http::Connection& con, std::string baseUrl, std::string username, std::string password, std::string& sessionCookie) {
+	http::Request req = http::Request::POST(baseUrl + "/api/auth/login");
 	req.SetBasicAuth(username, password);
 	auto resp = con.Perform(req);
 	if (!resp.Is200())

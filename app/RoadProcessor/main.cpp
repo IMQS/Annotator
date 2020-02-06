@@ -158,6 +158,14 @@ int main(int argc, char** argv) {
 	//rend.SaveToFile("test.png");
 	//return 0;
 
+	//ColorSpace::Lch lch(95, 95, 150);
+	//ColorSpace::Rgb rgb(255, 255, 0);
+	////rgb.To(&lch);
+	////tsf::print("%v, %v, %v\n", lch.l, lch.c, lch.h);
+	//lch.To(&rgb);
+	//tsf::print("%v, %v, %v\n", rgb.r, rgb.g, rgb.b);
+	//return 0;
+
 	argparse::Args args("Usage: RoadProcessor [options] <command>");
 	args.AddValue("e", "lensdb", "Camera/Lens database", "/usr/local/share/lensfun/version_2/");
 	args.AddValue("l", "lens", "Lens correction (eg 'Fujifilm X-T2,Samyang 12mm f/2.0 NCS CS'");
@@ -193,6 +201,7 @@ int main(int argc, char** argv) {
 
 	auto photos = args.AddCommand("photos <username> <password> <client> <prefix>", "Run the gen2 models on GoPro photos", PhotoProcessor::Run);
 	photos->AddValue("r", "resume", "Start at the given photo number (0 is the first)", "0");
+	photos->AddValue("s", "server", "Server where the 'console' service runs", "http://roads.imqs.co.za");
 
 	if (!args.Parse(argc, (const char**) argv))
 		return 1;

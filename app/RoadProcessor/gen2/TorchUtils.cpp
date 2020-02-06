@@ -42,6 +42,10 @@ std::string SizeToString(const c10::IntArrayRef& size) {
 	return s;
 }
 
+std::string SizeToString(const at::Tensor& t) {
+	return SizeToString(t.sizes());
+}
+
 at::Tensor ImgToTensor(const gfx::Image& img, ImgNormalizeMode mode) {
 	IMQS_ASSERT(img.NumChannels() == 4);
 	IMQS_ASSERT(img.Stride == img.NumChannels() * img.Width);
