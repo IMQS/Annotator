@@ -112,6 +112,19 @@ export class Polygon {
 		return true;
 	}
 
+	closestVertex(pt: Vec2): number {
+		let best = 9e9;
+		let besti = 0;
+		for (let i = 0; i < this.vx.length; i++) {
+			let dist = this.vx[i].distance(pt);
+			if (dist < best) {
+				best = dist;
+				besti = i;
+			}
+		}
+		return besti;
+	}
+
 	// Assuming this polygon is a rectangle, rewrite the 4 vertices so that they are
 	// ordered top-left, top-right, bottom-right, bottom-left, given a top-down coordinate system.
 	normalizeRectangle() {
@@ -137,5 +150,16 @@ export class Polygon {
 		this.vx[2].y = y2;
 		this.vx[3].x = x1;
 		this.vx[3].y = y2;
+	}
+
+	clipRectangleTo(x1: number, y1: number, x2: number, y2: number) {
+		if (this.vx.length !== 4)
+			throw new Error('Not a rectangle');
+		for (let vx of this.vx) {
+			vx.x = Math.max(vx.x, x1);
+			vx.y = Math.max(vx.y, y1);
+			vx.x = Math.min(vx.x, x2);
+			vx.y = Math.min(vx.y, y2);
+		}
 	}
 }

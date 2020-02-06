@@ -69,6 +69,7 @@ export class Draw {
 	public labels: ImageLabelSet = new ImageLabelSet();
 	public curRegion: LabelRegion | null = null;
 	public curDragIdx: number = -1; // Index of the vertex currently being dragged
+	public curDragRectOppositePt: Vec2 = new Vec2(0, 0);
 	public ghostPoly: Polygon | null = null; // Ghost is the automatically computed circle through the 4 points that the user has entered
 	public busyUpdatingGhost: boolean = false;
 	public minVxDragPx = 30;
@@ -83,8 +84,8 @@ export class Draw {
 
 	initialize(canvas: HTMLCanvasElement) {
 		this.canvas = canvas;
-		this.canvas.addEventListener('mousedown', (ev) => { this.onMouseDown(ev); });
-		this.canvas.addEventListener('mouseup', (ev) => { this.onMouseUp(ev); });
+		this.canvas.addEventListener('pointerdown', (ev) => { this.onMouseDown(ev); });
+		this.canvas.addEventListener('pointerup', (ev) => { this.onMouseUp(ev); });
 		this.canvas.addEventListener('mousemove', (ev) => { this.onMouseMove(ev); });
 		this.canvas.addEventListener('contextmenu', (ev) => { this.onContextMenu(ev); });
 		this.canvas.addEventListener('wheel', (ev) => { this.onMouseWheel(ev); });
@@ -102,6 +103,14 @@ export class Draw {
 
 	get isSemanticSegmentationDim(): boolean {
 		return this.isPolygonDim && this.dim !== null && this.dim.isSemanticSegmentation;
+	}
+
+	get imgWidth(): number | undefined {
+		return this.img ? this.img.naturalWidth : undefined;
+	}
+
+	get imgHeight(): number | undefined {
+		return this.img ? this.img.naturalHeight : undefined;
 	}
 
 	freeze() {
@@ -191,6 +200,7 @@ export class Draw {
 		this.popups = [];
 		for (let region of this.labels.regionsWithPolygons()) {
 			// draw region dimly if it's labelled for a different dimension to the one we're currently defining
+			let isCurrent = region === this.curRegion;
 			let isDefined = region.labels[this.dim.id] !== undefined;
 			let p = region.polygon!;
 			cx.beginPath();
@@ -207,7 +217,7 @@ export class Draw {
 			}
 			cx.lineTo(pt0.x, pt0.y);
 			cx.lineWidth = isDefined ? 1.5 : 1.5;
-			if (region === this.curRegion) {
+			if (isCurrent) {
 				cx.strokeStyle = 'rgba(210,0,200,0.9)';
 				cx.stroke();
 			} else {
@@ -229,11 +239,12 @@ export class Draw {
 				let mx = (minP.x + maxP.x) / 2;
 				let my = (minP.y + maxP.y) / 2;
 				let title = category != null ? category.title : 'UNRECOGNIZED';
-				let categoryBox = this.drawTextWithHalo(cx, title, mx, my);
+				let halo = isCurrent ? 'rgba(255,150,150,0.3)' : 'rgba(255,255,255,0.3)';
+				let categoryBox = this.drawTextWithHalo(cx, title, mx, my, halo);
 				this.popups.push(new Popup(categoryBox, region, this.dim.id, false));
 				if (category && category.hasIntensity) {
 					let intensity = lab.intensity !== undefined ? lab.intensity : 0;
-					let intensityBox = this.drawTextWithHalo(cx, intensity.toFixed(0), categoryBox.x2 + 10, my);
+					let intensityBox = this.drawTextWithHalo(cx, intensity.toFixed(0), categoryBox.x2 + 10, my, halo);
 					this.popups.push(new Popup(intensityBox, region, this.dim.id, true));
 				}
 			}
@@ -256,8 +267,8 @@ export class Draw {
 	}
 
 	// Returns the canvas coordinates of the rendered text box
-	drawTextWithHalo(cx: CanvasRenderingContext2D, txt: string, x: number, y: number): Rect {
-		cx.fillStyle = 'rgba(255,255,255,0.3)';
+	drawTextWithHalo(cx: CanvasRenderingContext2D, txt: string, x: number, y: number, haloStyle: string): Rect {
+		cx.fillStyle = haloStyle;
 		cx.font = '16px sans-serif';
 		cx.textAlign = 'center';
 		cx.textBaseline = 'middle';
@@ -282,7 +293,7 @@ export class Draw {
 		// this is necessary for pinch zooming to work on laptops
 		ev.preventDefault();
 		let zoomin = ev.deltaY < 0;
-		let scale = 1.4;
+		let scale = 1.25;
 		if (!zoomin)
 			scale = 1.0 / scale;
 		let newScale = this.vpScale.scalarMul(scale);
@@ -295,7 +306,7 @@ export class Draw {
 		this.paint();
 	}
 
-	onMouseDown(ev: MouseEvent) {
+	onMouseDown(ev: PointerEvent) {
 		if (this.state === State.Frozen)
 			return;
 		if (!this.isPolygonDim)
@@ -344,8 +355,12 @@ export class Draw {
 						this.curRegion = htVx.region;
 						this.curDragIdx = htVx.idx;
 						this.isModifyingRectangle = this.curRegion.polygon!.isRectangle;
+						if (this.isModifyingRectangle) {
+							this.curDragRectOppositePt = this.curRegion.polygon!.vx[(htVx.idx + 2) % 4].clone();
+						}
 						this.dragVertex(clickPtWorld);
 						this.emitEditStateChange(EditState.StartEdit);
+						this.canvas.setPointerCapture(ev.pointerId);
 					}
 					this.paint();
 					return;
@@ -409,7 +424,9 @@ export class Draw {
 		ev.preventDefault();
 	}
 
-	onMouseUp(ev: MouseEvent) {
+	onMouseUp(ev: PointerEvent) {
+		this.canvas.releasePointerCapture(ev.pointerId);
+
 		if (this.state === State.Frozen)
 			return;
 		if (!this.isPolygonDim)
@@ -438,6 +455,7 @@ export class Draw {
 				p.vx[1].x = ptWorld.x;
 				p.vx[2] = ptWorld.clone();
 				p.vx[3].y = ptWorld.y;
+				this.clipRectangleToImage(p);
 			} else {
 				p.vx[p.vx.length - 1] = ptWorld.clone();
 			}
@@ -451,17 +469,18 @@ export class Draw {
 		this.paint();
 	}
 
+	clipRectangleToImage(p: Polygon) {
+		p.clipRectangleTo(0, 0, this.imgWidth!, this.imgHeight!);
+	}
+
 	private dragVertex(ptWorld: Vec2) {
 		if (this.isModifyingRectangle) {
-			let vx = this.curRegion!.polygon!.vx;
-			vx[this.curDragIdx] = ptWorld;
-			let i = this.curDragIdx;
-			let j = (this.curDragIdx + 2) % 4; // j = the opposite vertex
-			let x1 = Math.min(vx[i].x, vx[j].x);
-			let y1 = Math.min(vx[i].y, vx[j].y);
-			let x2 = Math.max(vx[i].x, vx[j].x);
-			let y2 = Math.max(vx[i].y, vx[j].y);
+			let x1 = Math.min(this.curDragRectOppositePt.x, ptWorld.x);
+			let y1 = Math.min(this.curDragRectOppositePt.y, ptWorld.y);
+			let x2 = Math.max(this.curDragRectOppositePt.x, ptWorld.x);
+			let y2 = Math.max(this.curDragRectOppositePt.y, ptWorld.y);
 			this.curRegion!.polygon!.setRectangle(x1, y1, x2, y2);
+			this.clipRectangleToImage(this.curRegion!.polygon!);
 		} else {
 			this.curRegion!.polygon!.vx[this.curDragIdx] = ptWorld;
 		}
