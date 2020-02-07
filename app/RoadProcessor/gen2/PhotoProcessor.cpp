@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "PhotoProcessor.h"
 #include "TorchUtils.h"
+#include "CloudStorage.h"
 #include "../Globals.h"
 
 using namespace std;
@@ -55,6 +56,9 @@ PhotoProcessor::PhotoProcessor() {
 	QHaveRoadType.Initialize(true);
 	QDone.Initialize(true);
 
+	CloudStorage.Bucket   = "roadphoto.imqs.co.za";
+	CloudStorage.Platform = "gcs";
+
 	// Setup for tar_defects
 	Model = new TarDefectsModel();
 
@@ -74,9 +78,10 @@ int PhotoProcessor::Run(argparse::Args& args) {
 	auto           password = args.Params[1];
 	auto           client   = args.Params[2];
 	auto           prefix   = args.Params[3];
+	auto           cloudKey = args.Params[4];
 	PhotoProcessor pp;
 	pp.BaseUrl = args.Get("server");
-	auto err   = pp.RunInternal(username, password, client, prefix, args.GetInt("resume"));
+	auto err   = pp.RunInternal(username, password, client, prefix, cloudKey, args.GetInt("resume"));
 	if (!err.OK()) {
 		tsf::print("Error: %v\n", err.Message());
 		return 1;
@@ -84,12 +89,17 @@ int PhotoProcessor::Run(argparse::Args& args) {
 	return 0;
 }
 
-Error PhotoProcessor::RunInternal(string username, string password, string client, string prefix, int startAt) {
+Error PhotoProcessor::RunInternal(string username, string password, string client, string prefix, std::string cloudStorageAuthFile, int startAt) {
 	Finished = false;
 
-	tsf::print("Logging in\n");
+	tsf::print("Logging in to 'Console' service\n");
 	http::Connection cx;
 	auto             err = global::Login(cx, BaseUrl, username, password, SessionCookie);
+	if (!err.OK())
+		return err;
+
+	tsf::print("Logging in to Cloud Storage system\n");
+	err = GCSLoginWithFile(cloudStorageAuthFile, CloudStorage.AuthToken);
 	if (!err.OK())
 		return err;
 
@@ -427,6 +437,29 @@ void PhotoProcessor::UploadThread() {
 			// auto& severity     = photo["Severity"];
 			// for (size_t i = 0; i < Models.size(); i++)
 			// 	severity[Models[i].Name] = job->Results[i];
+
+			string cloudPath = job->CloudStoragePath();
+
+			string analysisPng;
+			auto   err = job->AnalysisImage.SavePngBuffer(analysisPng, false, 9);
+			IMQS_ASSERT(err.OK());
+			for (int attempt = 0; true; attempt++) {
+				if (cloudPath.find('/') == 0) {
+					cloudPath = cloudPath.substr(1);
+				}
+				string analysisPath = "analysis/" + Model->ModelName + "/" + cloudPath;
+				err                 = UploadToCloudStorage(cx, CloudStorage, analysisPath, "image/png", analysisPng);
+				if (err.OK())
+					break;
+				tsf::print("Upload %v to cloud storage failed: %v\n", analysisPath, err.Message());
+				if (attempt == MaxUploadAttempts) {
+					tsf::print("Giving up and aborting\n");
+					Finished = true;
+					break;
+				}
+				os::Sleep((1 << attempt) * time::Second);
+			}
+
 			batchSize++;
 		}
 
@@ -495,6 +528,11 @@ Error PhotoProcessor::LoadModels() {
 
 void PhotoProcessor::PushToQueue(TQueue<PhotoJob*>& queue, int maxQueueSize, PhotoJob* job) {
 	while (queue.Size() >= maxQueueSize) {
+		if (Finished) {
+			// This is necessary when we get cancelled. For example, if the upload thread fails too many
+			// times, then it will set Finished = true, and kill itself.
+			break;
+		}
 		os::Sleep(50 * time::Millisecond);
 	}
 	queue.Push(job);

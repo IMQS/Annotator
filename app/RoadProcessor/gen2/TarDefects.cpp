@@ -44,13 +44,13 @@ Error TarDefectsModel::Run(std::mutex& gpuLock, const torch::Tensor& input, cons
 			uint8_t*       dstLine   = img.Line(y);
 			memcpy(dstLine, srcLine, resWidth);
 		}
-		job->TarDefectImage = move(img);
+		job->AnalysisImage = move(img);
 		// Analyze compression factor vs size
-		// job->TarDefectImage.SavePng("/home/ben/viz/152x56-0.png", false, 0);
-		// job->TarDefectImage.SavePng("/home/ben/viz/152x56-1.png", false, 1);
-		// job->TarDefectImage.SavePng("/home/ben/viz/152x56-5.png", false, 5);
-		// job->TarDefectImage.SavePng("/home/ben/viz/152x56-9.png", false, 9);
-		SegmentationSummaryToJSON(job->TarDefectImage, job->DBOutput);
+		// job->AnalysisImage.SavePng("/home/ben/viz/152x56-0.png", false, 0);
+		// job->AnalysisImage.SavePng("/home/ben/viz/152x56-1.png", false, 1);
+		// job->AnalysisImage.SavePng("/home/ben/viz/152x56-5.png", false, 5);
+		// job->AnalysisImage.SavePng("/home/ben/viz/152x56-9.png", false, 9);
+		SegmentationSummaryToJSON(job->AnalysisImage, job->DBOutput);
 		//DrawDebugImage(job);
 	}
 
@@ -58,7 +58,7 @@ Error TarDefectsModel::Run(std::mutex& gpuLock, const torch::Tensor& input, cons
 }
 
 void TarDefectsModel::DrawDebugImage(PhotoJob* job) const {
-	auto       cats = job->TarDefectImage;
+	auto       cats = job->AnalysisImage;
 	gfx::Image rgb  = TensorToImg(job->RGB);
 
 	// Produce an upscaled version of the categories image.
@@ -93,6 +93,7 @@ void TarDefectsModel::DrawDebugImage(PhotoJob* job) const {
 	}
 
 	blowup.BlendOnto(rgb);
+	cats.SavePng("/home/ben/viz/res.png");
 	rgb.SaveJpeg("/home/ben/viz/res.jpg", 95);
 }
 

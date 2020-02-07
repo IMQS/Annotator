@@ -493,12 +493,12 @@ static ImageDiffResult ImageDiff(MeshRenderer& rend, const Image& img1, const Im
 
 	if (debug) {
 		ImageIO imgIO;
-		imgIO.SavePngFile("/home/ben/flat1.png", false, flat1.Width, flat1.Height, flat1.Stride, flat1.Data, 1);
-		imgIO.SavePngFile("/home/ben/flat2.png", false, flat2.Width, flat2.Height, flat2.Stride, flat2.Data, 1);
+		imgIO.SavePngFile("/home/ben/flat1.png", gfx::ImageFormat::RGBA, false, flat1.Width, flat1.Height, flat1.Stride, flat1.Data, 1);
+		imgIO.SavePngFile("/home/ben/flat2.png", gfx::ImageFormat::RGBA, false, flat2.Width, flat2.Height, flat2.Stride, flat2.Data, 1);
 		cv::Mat outImg;
 		cv::drawMatches(mcrop1, kp1.Points, mcrop2, kp2.Points, matches, outImg);
 		auto diag = MatToImage(outImg);
-		imgIO.SavePngFile("/home/ben/match.png", false, diag.Width, diag.Height, diag.Stride, diag.Data, 1);
+		imgIO.SavePngFile("/home/ben/match.png", gfx::ImageFormat::RGBA, false, diag.Width, diag.Height, diag.Stride, diag.Data, 1);
 	}
 
 	vector<double> xdelta, ydelta;

@@ -656,17 +656,37 @@ Error Image::LoadBuffer(const void* buffer, size_t size) {
 }
 
 Error Image::SavePng(const std::string& filename, bool withAlpha, int zlibLevel) const {
-	if (Format == ImageFormat::Gray) {
-		auto copy = AsType(ImageFormat::RGBA);
-		return copy.SavePng(filename, false, zlibLevel);
-	}
-	return ImageIO::SavePngFile(filename, withAlpha, Width, Height, Stride, Data, zlibLevel);
+	return ImageIO::SavePngFile(filename, Format, withAlpha, Width, Height, Stride, Data, zlibLevel);
 }
 
 Error Image::SaveJpeg(const std::string& filename, int quality, JpegSampling sampling) const {
 	if (Format == ImageFormat::Gray)
 		sampling = JpegSampling::SampGray;
 	return ImageIO::SaveJpegFile(filename, Format, Width, Height, Stride, Data, quality, sampling);
+}
+
+Error Image::SavePngBuffer(std::string& buffer, bool withAlpha, int zlibLevel) const {
+	ImageIO io;
+	void*   enc  = nullptr;
+	size_t  size = 0;
+	auto    err  = io.SavePng(Format, withAlpha, Width, Height, Stride, Data, zlibLevel, enc, size);
+	if (!err.OK())
+		return err;
+	buffer.assign((const char*) enc, size);
+	io.FreeEncodedBuffer(gfx::ImageType::Png, enc);
+	return Error();
+}
+
+Error Image::SaveJpegBuffer(std::string& buffer, int quality, JpegSampling sampling) const {
+	ImageIO io;
+	void*   enc  = nullptr;
+	size_t  size = 0;
+	auto    err  = io.SaveJpeg(Format, Width, Height, Stride, Data, quality, sampling, enc, size);
+	if (!err.OK())
+		return err;
+	buffer.assign((const char*) enc, size);
+	io.FreeEncodedBuffer(gfx::ImageType::Jpeg, enc);
+	return Error();
 }
 
 Error Image::SaveFile(const std::string& filename) const {

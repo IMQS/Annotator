@@ -25,7 +25,7 @@ Error ImageIO::Save(ImageFormat format, int width, int height, int stride, const
 	case ImageType::Png:
 		if (!(format == ImageFormat::RGBA || format == ImageFormat::RGBAP))
 			return Error::Fmt("Invalid image type %v for PNG save", (int) format);
-		return SavePng(withAlpha, width, height, stride, buf, losslessQ_1_to_9, encBuf, encSize);
+		return SavePng(format, withAlpha, width, height, stride, buf, losslessQ_1_to_9, encBuf, encSize);
 	default: return Error("Unsupported image type for compression");
 	}
 }
@@ -91,35 +91,47 @@ static void PngWarningFunc(png_structp pp, png_const_charp msg) {
 	//tsf::print("PNG warning: %v\n", msg);
 }
 
-Error ImageIO::SavePng(bool withAlpha, int width, int height, int stride, const void* buf, int zlibLevel, void*& encBuf, size_t& encSize) {
-	uint8_t*  buf8    = (uint8_t*) buf;
-	uint8_t*  rgb     = nullptr;
-	uint8_t** rows    = (uint8_t**) imqs_malloc_or_die(height * sizeof(void*));
-	int       pngType = 0;
-	if (withAlpha) {
-		pngType = PNG_COLOR_TYPE_RGBA;
+Error ImageIO::SavePng(ImageFormat format, bool withAlpha, int width, int height, int stride, const void* buf, int zlibLevel, void*& encBuf, size_t& encSize) {
+	uint8_t*  buf8          = (uint8_t*) buf;
+	uint8_t*  rgb           = nullptr;
+	uint8_t** rows          = (uint8_t**) imqs_malloc_or_die(height * sizeof(void*));
+	int       pngType       = 0;
+	int       bytesPerPixel = 0;
+	if (format == ImageFormat::RGBA || format == ImageFormat::RGBAP) {
+		if (withAlpha) {
+			bytesPerPixel = 4;
+			pngType       = PNG_COLOR_TYPE_RGBA;
+			for (int i = 0; i < (int) height; i++)
+				rows[i] = buf8 + i * stride;
+		} else {
+			// libpng doesn't accept RGBA for an RGB image, so we need to transform our data from RGBA to RGB
+			bytesPerPixel = 3;
+			pngType       = PNG_COLOR_TYPE_RGB;
+			rgb           = (uint8_t*) imqs_malloc_or_die(width * height * 3);
+			for (int i = 0; i < (int) height; i++) {
+				auto rgba = buf8 + i * stride;
+				auto line = rgb + i * width * 3;
+				rows[i]   = line;
+				for (int j = 0; j < width; j++) {
+					*line++ = rgba[0];
+					*line++ = rgba[1];
+					*line++ = rgba[2];
+					rgba += 4;
+				}
+			}
+		}
+	} else if (format == ImageFormat::Gray) {
+		bytesPerPixel = 1;
+		pngType       = PNG_COLOR_TYPE_GRAY;
 		for (int i = 0; i < (int) height; i++)
 			rows[i] = buf8 + i * stride;
 	} else {
-		// libpng doesn't accept RGBA for an RGB image, so we need to transform our data from RGBA to RGB
-		pngType = PNG_COLOR_TYPE_RGB;
-		rgb     = (uint8_t*) imqs_malloc_or_die(width * height * 3);
-		for (int i = 0; i < (int) height; i++) {
-			auto rgba = buf8 + i * stride;
-			auto line = rgb + i * width * 3;
-			rows[i]   = line;
-			for (int j = 0; j < width; j++) {
-				*line++ = rgba[0];
-				*line++ = rgba[1];
-				*line++ = rgba[2];
-				rgba += 4;
-			}
-		}
+		return Error::Fmt("Unsupported image format for SavePng: %v", (int) format);
 	}
 
 	PngWriteBuf wb;
-	wb.Cap = width * height;
-	wb.Buf = imqs_malloc_or_die(wb.Cap); // assume 3:1 compression ratio
+	wb.Cap = width * height * bytesPerPixel / 3; // assume 3:1 compression ratio
+	wb.Buf = imqs_malloc_or_die(wb.Cap);
 
 	//tsf::print("PNG version %v\n", PNG_LIBPNG_VER_STRING);
 	auto pp = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, PngErrorFunc, PngWarningFunc);
@@ -141,11 +153,11 @@ Error ImageIO::SavePng(bool withAlpha, int width, int height, int stride, const 
 	return Error();
 }
 
-Error ImageIO::SavePngFile(const std::string& filename, bool withAlpha, int width, int height, int stride, const void* buf, int zlibLevel) {
+Error ImageIO::SavePngFile(const std::string& filename, ImageFormat format, bool withAlpha, int width, int height, int stride, const void* buf, int zlibLevel) {
 	ImageIO self;
 	void*   encBuf  = nullptr;
 	size_t  encSize = 0;
-	auto    err     = self.SavePng(withAlpha, width, height, stride, buf, zlibLevel, encBuf, encSize);
+	auto    err     = self.SavePng(format, withAlpha, width, height, stride, buf, zlibLevel, encBuf, encSize);
 	if (!err.OK())
 		return err;
 	err = os::WriteWholeFile(filename, encBuf, encSize);

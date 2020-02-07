@@ -1,7 +1,7 @@
 # Bring in libtorch, so that we can suck it's files out later
 FROM imqs/libtorch
 
-FROM nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04
+FROM nvidia/cuda:10.2-cudnn7-devel-ubuntu18.04
 
 COPY --from=0 /usr/local/libtorch/ /usr/local/libtorch/
 

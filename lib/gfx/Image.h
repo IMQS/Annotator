@@ -130,6 +130,8 @@ public:
 	Error LoadBuffer(const void* buffer, size_t size);
 	Error SavePng(const std::string& filename, bool withAlpha = true, int zlibLevel = 5) const;
 	Error SaveJpeg(const std::string& filename, int quality = 90, JpegSampling sampling = JpegSampling::Samp444) const;
+	Error SavePngBuffer(std::string& buffer, bool withAlpha = true, int zlibLevel = 5) const;
+	Error SaveJpegBuffer(std::string& buffer, int quality = 90, JpegSampling sampling = JpegSampling::Samp444) const;
 	Error SaveFile(const std::string& filename) const;
 
 	uint8_t*        At(int x, int y) { return Data + (y * Stride) + x * BytesPerPixel(); }
@@ -147,7 +149,6 @@ public:
 	ChannelTypes    ChannelType() const { return gfx::ChannelType(Format); }
 	size_t          BytesPerLine() const { return gfx::BytesPerPixel(Format) * Width; }
 };
-
 
 } // namespace gfx
 } // namespace imqs

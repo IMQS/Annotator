@@ -4,6 +4,7 @@
 #include "AnalysisModel.h"
 #include "RoadType.h"
 #include "TarDefects.h"
+#include "CloudStorage.h"
 
 namespace imqs {
 namespace roadproc {
@@ -35,20 +36,21 @@ public:
 	// We should only need a single thread for each neural network phase, because a single thread can
 	// load up a bunch of sample in a batch
 	//int             NumFetchThreads      = 8; // Threads that download, decode, and create tensor
-	int               NumFetchThreads      = 1; // HACK // Threads that download, decode, and create tensor
-	int               NumRoadTypeThreads   = 1;
-	int               NumAssessmentThreads = 1;
-	int               NumUploadThreads     = 1;
-	bool              EnableRoadType       = false;   // This isn't necessary for our tar_defects model
-	AnalysisModel*    Model                = nullptr; // The one and only analysis model. It wouldn't be hard to have a few models here, instead of just one.
-	std::string       BaseUrl;                        // URL where 'console' DB service is running (default from command line args is http://roads.imqs.co.za)
-	std::atomic<bool> Finished;                       // Toggled at the end of RunInternal(), after all queues have drained
+	int                 NumFetchThreads      = 1; // HACK // Threads that download, decode, and create tensor
+	int                 NumRoadTypeThreads   = 1;
+	int                 NumAssessmentThreads = 1;
+	int                 NumUploadThreads     = 1;
+	bool                EnableRoadType       = false;   // This isn't necessary for our tar_defects model
+	AnalysisModel*      Model                = nullptr; // The one and only analysis model. It wouldn't be hard to have a few models here, instead of just one.
+	std::string         BaseUrl;                        // URL where 'console' DB service is running (default from command line args is http://roads.imqs.co.za)
+	std::atomic<bool>   Finished;                       // Toggled at the end of RunInternal(), after all queues have drained
+	CloudStorageDetails CloudStorage;
 
 	PhotoProcessor();
 
 	static int Run(argparse::Args& args);
 
-	Error RunInternal(std::string username, std::string password, std::string client, std::string prefix, int startAt = 0);
+	Error RunInternal(std::string username, std::string password, std::string client, std::string prefix, std::string cloudStorageAuthFile, int startAt = 0);
 
 private:
 	torch::jit::script::Module MRoadType;     // This is a special model, because the others depend on it

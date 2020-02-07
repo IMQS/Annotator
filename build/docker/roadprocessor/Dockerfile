@@ -6,7 +6,7 @@ WORKDIR /build
 RUN tundra2 linux-clang-release RoadProcessor
 
 ####################################################################################################################
-FROM nvidia/cuda:10.0-cudnn7-runtime-ubuntu18.04
+FROM nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04
 
 RUN rm -rf /var/lib/apt/lists/* && apt-get update
 RUN apt-get install -y \

@@ -32,10 +32,10 @@ public:
 	Error LoadPng(const void* pngBuf, size_t pngLen, int& width, int& height, void*& buf);
 
 	// Encode png
-	Error SavePng(bool withAlpha, int width, int height, int stride, const void* buf, int zlibLevel, void*& encBuf, size_t& encSize);
+	Error SavePng(ImageFormat format, bool withAlpha, int width, int height, int stride, const void* buf, int zlibLevel, void*& encBuf, size_t& encSize);
 
 	// Save png to file
-	static Error SavePngFile(const std::string& filename, bool withAlpha, int width, int height, int stride, const void* buf, int zlibLevel);
+	static Error SavePngFile(const std::string& filename, ImageFormat format, bool withAlpha, int width, int height, int stride, const void* buf, int zlibLevel);
 
 	// Reads only the metadata out of a jpeg image
 	Error LoadJpegHeader(const void* jpegBuf, size_t jpegLen, int* width, int* height, JpegSampling* sampling = nullptr, bool* isColor = nullptr);

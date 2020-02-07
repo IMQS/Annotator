@@ -199,7 +199,7 @@ int main(int argc, char** argv) {
 
 	auto bench = args.AddCommand("bench", "Various internal benchmarks", Bench);
 
-	auto photos = args.AddCommand("photos <username> <password> <client> <prefix>", "Run the gen2 models on GoPro photos", PhotoProcessor::Run);
+	auto photos = args.AddCommand("photos <username> <password> <client> <prefix> <cloud storage credentials file>", "Run the gen2 models on GoPro photos", PhotoProcessor::Run);
 	photos->AddValue("r", "resume", "Start at the given photo number (0 is the first)", "0");
 	photos->AddValue("s", "server", "Server where the 'console' service runs", "http://roads.imqs.co.za");
 
