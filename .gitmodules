@@ -39,4 +39,4 @@
 	url = https://github.com/avaneev/avir.git
 [submodule "third_party/colorspace"]
 	path = third_party/colorspace
-	url = https://github.com/berendeanicolae/ColorSpace.git
+	url = https://github.com/IMQS/ColorSpace.git
