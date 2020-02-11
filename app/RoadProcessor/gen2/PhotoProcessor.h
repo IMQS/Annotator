@@ -41,16 +41,20 @@ public:
 	int                 NumAssessmentThreads = 1;
 	int                 NumUploadThreads     = 1;
 	bool                EnableRoadType       = false;   // This isn't necessary for our tar_defects model
+	bool                RedoAll              = false;   // Rerun analysis on all photos. If false, then only perform analysis on photos that have not yet been processed.
 	AnalysisModel*      Model                = nullptr; // The one and only analysis model. It wouldn't be hard to have a few models here, instead of just one.
 	std::string         BaseUrl;                        // URL where 'console' DB service is running (default from command line args is http://roads.imqs.co.za)
 	std::atomic<bool>   Finished;                       // Toggled at the end of RunInternal(), after all queues have drained
+	std::atomic<size_t> TotalUploaded;                  // Total number of photos that have been uploaded since RunInternal() started
+	std::atomic<size_t> TotalPhotos;                    // Total number of photos that are going to be processed
+	time::Time          StartTime;                      // Time when RunInternal() started
 	CloudStorageDetails CloudStorage;
 
 	PhotoProcessor();
 
 	static int Run(argparse::Args& args);
 
-	Error RunInternal(std::string username, std::string password, std::string client, std::string prefix, std::string cloudStorageAuthFile, int startAt = 0);
+	Error RunInternal(std::string username, std::string password, std::string client, std::string prefix, std::string cloudStorageAuthFile);
 
 private:
 	torch::jit::script::Module MRoadType;     // This is a special model, because the others depend on it
@@ -75,12 +79,13 @@ private:
 	//int               GravelQualityBatchSize = 8;  // GPU batch size for all of the gravel road quality models
 	//void  AssessmentThread_Gravel();
 
-	void  FetchThread();
-	void  RoadTypeThread();
-	void  AssessmentThread();
-	void  UploadThread();
-	Error LoadModels();
-	void  PushToQueue(TQueue<PhotoJob*>& queue, int maxQueueSize, PhotoJob* job);
+	void        FetchThread();
+	void        RoadTypeThread();
+	void        AssessmentThread();
+	void        UploadThread();
+	Error       LoadModels();
+	void        PushToQueue(TQueue<PhotoJob*>& queue, int maxQueueSize, PhotoJob* job);
+	std::string CombinedModelVersion() const;
 
 	static void DumpPhotos(std::vector<PhotoJob*> jobs);
 };

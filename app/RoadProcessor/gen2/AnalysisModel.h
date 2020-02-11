@@ -30,7 +30,7 @@ public:
 	ImageCropParams            CropParams;                   // The shape desired
 	torch::jit::script::Module Model;                        // The model
 	ModelMeta                  Meta;                         // Category labels, etc
-	std::string                ModelName;                    // eg "tar_defects", which will cause us to look for models/tar_defects.tm and models/tar_defects.json
+	std::string                ModelName;                    // eg "tar_defects", which will cause us to look for models/tar_defects.tm and models/tar_defects.json. This name goes into the DB.
 	std::string                PostNNModelVersion = "1.0.0"; // Version of the C++ code that is running after the Neural Network
 
 	// Run on input of shape BCHW, where B = BatchSize, C = 3, H = CropParams.TargetHeight, W = CropParams.TargetWidth

@@ -138,6 +138,33 @@ Month TMonthFromName(int n, const TCH* name) {
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// If less than 60 seconds: 9s
+// If more than 60 seconds: 7:09s
+// If more than 60 minutes: 5:07:09s
+std::string Duration::FormatTimeRemaining() const {
+	if (*this < Minute) {
+		return tsf::fmt("%ds", (int) floor(Seconds()));
+	} else if (*this < Hour) {
+		double r = Seconds();
+		int    m = (int) floor(r / 60.0);
+		r -= m * 60;
+		int sec = (int) floor(r);
+		return tsf::fmt("%d:%02ds", m, sec);
+	} else {
+		double r = Seconds();
+		int    h = (int) floor(r / 3600.0);
+		r -= h * 3600;
+		int m = (int) floor(r / 60.0);
+		r -= m * 60;
+		int sec = (int) floor(r);
+		return tsf::fmt("%d:%02d:%02ds", h, m, sec);
+	}
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 Time::Time(int year, time::Month month, int day, int hour, int minute, int second, int nsec) {
 	// Normalize month, overflowing into year.
 	int m = (int) month - 1;

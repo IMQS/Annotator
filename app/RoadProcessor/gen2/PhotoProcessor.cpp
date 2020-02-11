@@ -9,7 +9,19 @@ using namespace std;
 namespace imqs {
 namespace roadproc {
 
-static Error FindPhotosOnServer(std::string baseUrl, std::string client, std::string prefix, std::vector<std::string>& photoUrls) {
+// A photo and some information about the analysis that has already been run on it
+struct PhotoAndAnalysis {
+	std::string PhotoUrl;
+
+	// The version of the model that you're interested in.
+	// For example, if modelName is "tar_defects", then ModelVersion could be "tar-1.2.0-1.0.1".
+	// This means that when the analysis was last run for the tar_defects model, then the version
+	// of the model that performed that analysis was "tar-1.2.0-1.0.1".
+	// If ModelVersion is empty, then the model in question has not yet been run on this photo.
+	std::string ModelVersion;
+};
+
+static Error FindPhotosOnServer(std::string baseUrl, std::string client, std::string prefix, std::string modelName, std::vector<PhotoAndAnalysis>& photos) {
 	if (baseUrl == "")
 		return Error("FindPhotosOnServer: BaseURL is empty");
 
@@ -22,6 +34,7 @@ static Error FindPhotosOnServer(std::string baseUrl, std::string client, std::st
 	ohash::map<string, string> q   = {
         {"client", client},
         {"prefix", prefix},
+        {"include_analysis", "1"},
     };
 	string fullUrl = api + url::Encode(q);
 
@@ -30,6 +43,8 @@ static Error FindPhotosOnServer(std::string baseUrl, std::string client, std::st
 		// This is often the first error that you'll see from this system, so we add extra detail
 		return Error::Fmt("Error fetching photos from %v: %v", fullUrl, resp.ToError().Message());
 	}
+	// Example analysis JSON:
+	// {"Models": {"tar_defects": {"Count": {"curb": 707, "none": 7445, "brick": 3, "manhole": 181, "not-road": 175, "long-crack": 1}, "Version": "tar-1.0.0-1.0.0"}}}
 
 	nlohmann::json jroot;
 	auto           err = nj::ParseString(resp.Body, jroot);
@@ -39,12 +54,23 @@ static Error FindPhotosOnServer(std::string baseUrl, std::string client, std::st
 		return Error("JSON response from list_photos is not an array");
 	for (size_t i = 0; i < jroot.size(); i++) {
 		const auto& j = jroot[i];
-		if (j.find("Photo") == j.end()) {
+		if (!nj::Has(j, "Photo")) {
 			tsf::print("Warning: JSON record has no 'Photo' member\n");
 			continue;
 		}
-		const auto& jPhoto = j["Photo"];
-		photoUrls.push_back(nj::GetString(jPhoto, "URL"));
+		const auto&      jPhoto = j["Photo"];
+		PhotoAndAnalysis p;
+		p.PhotoUrl = nj::GetString(jPhoto, "URL");
+		if (modelName != "") {
+			if (nj::Has(j, "Analysis")) {
+				const auto& jAnalysis = j["Analysis"];
+				if (nj::Has(jAnalysis, "Models") && nj::Has(jAnalysis["Models"], modelName.c_str())) {
+					const auto& jModel = nj::GetObject(jAnalysis["Models"], modelName.c_str());
+					p.ModelVersion     = nj::GetString(jModel, "Version");
+				}
+			}
+		}
+		photos.push_back(move(p));
 	}
 
 	return Error();
@@ -55,6 +81,7 @@ PhotoProcessor::PhotoProcessor() {
 	QDownloaded.Initialize(true);
 	QHaveRoadType.Initialize(true);
 	QDone.Initialize(true);
+	TotalUploaded = 0;
 
 	CloudStorage.Bucket   = "roadphoto.imqs.co.za";
 	CloudStorage.Platform = "gcs";
@@ -81,7 +108,8 @@ int PhotoProcessor::Run(argparse::Args& args) {
 	auto           cloudKey = args.Params[4];
 	PhotoProcessor pp;
 	pp.BaseUrl = args.Get("server");
-	auto err   = pp.RunInternal(username, password, client, prefix, cloudKey, args.GetInt("resume"));
+	pp.RedoAll = args.Has("all");
+	auto err   = pp.RunInternal(username, password, client, prefix, cloudKey);
 	if (!err.OK()) {
 		tsf::print("Error: %v\n", err.Message());
 		return 1;
@@ -89,8 +117,10 @@ int PhotoProcessor::Run(argparse::Args& args) {
 	return 0;
 }
 
-Error PhotoProcessor::RunInternal(string username, string password, string client, string prefix, std::string cloudStorageAuthFile, int startAt) {
-	Finished = false;
+Error PhotoProcessor::RunInternal(string username, string password, string client, string prefix, std::string cloudStorageAuthFile) {
+	Finished      = false;
+	StartTime     = time::Now();
+	TotalUploaded = 0;
 
 	tsf::print("Logging in to 'Console' service\n");
 	http::Connection cx;
@@ -109,16 +139,26 @@ Error PhotoProcessor::RunInternal(string username, string password, string clien
 		return err;
 
 	tsf::print("Preparing photo queue\n");
-	vector<string> photoUrls;
-	err = FindPhotosOnServer(BaseUrl, client, prefix, photoUrls);
+	vector<PhotoAndAnalysis> photos;
+	err = FindPhotosOnServer(BaseUrl, client, prefix, Model->ModelName, photos);
 	if (!err.OK())
 		return err;
-	tsf::print("Found %v photos to process, starting at %v\n", photoUrls.size(), startAt);
+
+	// Remove photos that have already been processed
+	vector<string> remainingPhotos;
+	string         modelVersion = CombinedModelVersion();
+	for (const auto& p : photos) {
+		if (RedoAll || p.ModelVersion != modelVersion)
+			remainingPhotos.push_back(p.PhotoUrl);
+	}
+
+	tsf::print("Found %v/%v photos to process\n", remainingPhotos.size(), photos.size());
+	TotalPhotos = remainingPhotos.size();
 
 	int64_t id = 0;
-	for (size_t i = startAt; i < photoUrls.size(); i++) {
+	for (const auto& url : remainingPhotos) {
 		auto j        = new PhotoJob();
-		j->PhotoURL   = photoUrls[i];
+		j->PhotoURL   = url;
 		j->InternalID = id++;
 		QNotStarted.Push(j);
 	}
@@ -410,8 +450,7 @@ void PhotoProcessor::UploadThread() {
 	//   513 152x56-5.png
 	//   439 152x56-9.png
 
-	auto combinedModelVersion = Model->Meta.Version + "-" + Model->PostNNModelVersion;
-	batch["ModelVersion"]     = combinedModelVersion;
+	batch["ModelVersion"] = CombinedModelVersion();
 
 	http::Connection cx;
 
@@ -429,7 +468,7 @@ void PhotoProcessor::UploadThread() {
 			// So many ways.. such arbitrary decisions!
 			auto& jmodels     = jphoto["Models"];
 			auto& jmodel      = jmodels[Model->ModelName];
-			jmodel["Version"] = combinedModelVersion;
+			jmodel["Version"] = CombinedModelVersion();
 			jmodel["Count"]   = job->DBOutput;
 			//tsf::print("Upload thread got %v\n", job->DBOutput.dump());
 			// This was the old code for the gravel road stuff
@@ -465,13 +504,18 @@ void PhotoProcessor::UploadThread() {
 
 		if (batchSize == UploadBatchSize || (job == nullptr && batchSize != 0)) {
 			for (int attempt = 0; true; attempt++) {
-				tsf::print("Upload #%v of %v photos. Queues: (%v, %v, %v, %v)\n", nUploads, batchSize, QNotStarted.Size(), QDownloaded.Size(), QHaveRoadType.Size(), QDone.Size());
+				double photosPerSecond = ((double) TotalUploaded.load() + batchSize) / (time::Now() - StartTime).Seconds();
+				auto   timeRemaining   = (((double) TotalPhotos - TotalUploaded) / photosPerSecond) * time::Second;
+				tsf::print("Upload #%v of %v photos. Queues: (%v, %v, %v, %v). %.0f photos/minute. Remaining %v\n",
+				           nUploads, batchSize, QNotStarted.Size(), QDownloaded.Size(), QHaveRoadType.Size(), QDone.Size(),
+				           photosPerSecond * 60, timeRemaining.FormatTimeRemaining());
 				auto req = http::Request::POST(PhotoProcessor::BaseUrl + "/api/ph/analysis");
 				req.AddCookie("session", SessionCookie);
 				tsf::print("Uploading %v\n", batch.dump());
 				req.Body = batch.dump();
 				auto res = cx.Perform(req);
 				if (res.Is200()) {
+					TotalUploaded += batchSize;
 					batch["Photos"] = {};
 					batchSize       = 0;
 					nUploads++;
@@ -536,6 +580,10 @@ void PhotoProcessor::PushToQueue(TQueue<PhotoJob*>& queue, int maxQueueSize, Pho
 		os::Sleep(50 * time::Millisecond);
 	}
 	queue.Push(job);
+}
+
+std::string PhotoProcessor::CombinedModelVersion() const {
+	return Model->Meta.Version + "-" + Model->PostNNModelVersion;
 }
 
 void PhotoProcessor::DumpPhotos(std::vector<PhotoJob*> jobs) {

@@ -67,6 +67,11 @@ public:
 	std::chrono::nanoseconds Chrono() const { return std::chrono::nanoseconds(D); }
 	operator std::chrono::nanoseconds() const { return std::chrono::nanoseconds(D); }
 
+	// If less than 60 seconds: 9s
+	// If more than 60 seconds: 7:09s
+	// If more than 60 minutes: 5:07:09s
+	std::string FormatTimeRemaining() const;
+
 private:
 	int64_t D = 0;
 };

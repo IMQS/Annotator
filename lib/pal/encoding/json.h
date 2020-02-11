@@ -64,5 +64,6 @@ IMQS_PAL_API bool                  IsObject(const nlohmann::json& v, const char*
 IMQS_PAL_API bool                  IsString(const nlohmann::json& v, const char* key);
 IMQS_PAL_API bool                  IsNumber(const nlohmann::json& v, const char* key);
 IMQS_PAL_API bool                  IsBool(const nlohmann::json& v, const char* key);
+inline bool                        Has(const nlohmann::json& v, const char* key) { return v.find(key) != v.end(); }
 } // namespace nj
 } // namespace imqs
