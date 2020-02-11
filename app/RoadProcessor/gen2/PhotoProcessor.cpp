@@ -21,6 +21,17 @@ struct PhotoAndAnalysis {
 	std::string ModelVersion;
 };
 
+struct BusyLock {
+	std::atomic<int>* Counter;
+	BusyLock(std::atomic<int>& counter) {
+		Counter = &counter;
+		*Counter += 1;
+	}
+	~BusyLock() {
+		*Counter -= 1;
+	}
+};
+
 static Error FindPhotosOnServer(std::string baseUrl, std::string client, std::string prefix, std::string modelName, std::vector<PhotoAndAnalysis>& photos) {
 	if (baseUrl == "")
 		return Error("FindPhotosOnServer: BaseURL is empty");
@@ -81,7 +92,8 @@ PhotoProcessor::PhotoProcessor() {
 	QDownloaded.Initialize(true);
 	QHaveRoadType.Initialize(true);
 	QDone.Initialize(true);
-	TotalUploaded = 0;
+	TotalUploaded   = 0;
+	BusyLockCounter = 0;
 
 	CloudStorage.Bucket   = "roadphoto.imqs.co.za";
 	CloudStorage.Platform = "gcs";
@@ -177,18 +189,15 @@ Error PhotoProcessor::RunInternal(string username, string password, string clien
 	for (int i = 0; i < NumUploadThreads; i++)
 		threads.push_back(thread([&] { UploadThread(); }));
 
-	// get all queues to flush (eg if a batch isn't filled yet, just go ahead and process the incomplete batch)
-	for (int i = 0; i < 100; i++)
-		QNotStarted.Push(nullptr);
-
 	// wait for all queues to drain
-	while (QNotStarted.Size() != 0 || QDownloaded.Size() != 0 || QHaveRoadType.Size() != 0 || QDone.Size() != 0) {
+	while (QNotStarted.Size() != 0 || QDownloaded.Size() != 0 || QHaveRoadType.Size() != 0 || QDone.Size() != 0 || BusyLockCounter != 0) {
 		os::Sleep(50 * time::Millisecond);
 	}
 	tsf::print("Finished\n");
 	// set the Finished flag, to signal all threads to exit
-	Finished = true;
-	for (int i = 0; i < 100; i++) {
+	Finished           = true;
+	int maxThreadCount = 100;
+	for (int i = 0; i < maxThreadCount; i++) {
 		QNotStarted.Push(nullptr);
 		QDownloaded.Push(nullptr);
 		QHaveRoadType.Push(nullptr);
@@ -208,13 +217,10 @@ void PhotoProcessor::FetchThread() {
 
 	while (!Finished) {
 		QNotStarted.SemaphoreObj().wait();
-		auto job = QNotStarted.PopTailR();
+		BusyLock busy(BusyLockCounter);
+		auto     job = QNotStarted.PopTailR();
 		if (Finished)
 			break;
-		if (job == nullptr) {
-			QDownloaded.Push(job);
-			continue;
-		}
 
 		string url = job->PhotoURL;
 		if (!strings::StartsWith(url, "gs://")) {
@@ -312,24 +318,21 @@ void PhotoProcessor::RoadTypeThread() {
 
 	while (!Finished) {
 		QDownloaded.SemaphoreObj().wait();
-		auto job = QDownloaded.PopTailR();
+		BusyLock busy(BusyLockCounter);
+		auto     job = QDownloaded.PopTailR();
 		if (Finished)
 			break;
 
-		// null job means a pipeline flush
-
-		if (job && EnableRoadType) {
-			auto t                  = job->RGB.permute({2, 0, 1}); // HWC -> CHW
-			batch[batchJobs.size()] = t;
-			batchJobs.push_back(job);
-		}
-
 		if (!EnableRoadType) {
-			QHaveRoadType.Push(job);
+			PushToQueue(QHaveRoadType, MaxQHaveRoadType, job);
 			continue;
 		}
 
-		if ((!job || batchJobs.size() == RoadTypeBatchSize) && batchJobs.size() != 0) {
+		auto t                  = job->RGB.permute({2, 0, 1}); // HWC -> CHW
+		batch[batchJobs.size()] = t;
+		batchJobs.push_back(job);
+
+		if (batchJobs.size() != 0 && (batchJobs.size() == RoadTypeBatchSize || IsQueueDrained())) {
 			torch::NoGradGuard nograd;
 			GPULock.lock();
 			auto res = MRoadType.forward({batch.cuda()}).toTensor().cpu();
@@ -359,6 +362,7 @@ void PhotoProcessor::AssessmentThread_Gravel() {
 
 	while (!Finished) {
 		QHaveRoadType.SemaphoreObj().wait();
+		BusyLock busy(BusyLockCounter);
 		auto job = QHaveRoadType.PopTailR();
 		if (Finished)
 			break;
@@ -372,7 +376,7 @@ void PhotoProcessor::AssessmentThread_Gravel() {
 			iGravelBatch++;
 		}
 
-		if (iGravelBatch == GravelQualityBatchSize || (job == nullptr && iGravelBatch != 0)) {
+		if (iGravelBatch == GravelQualityBatchSize || IsQueueDrained() || (job == nullptr && iGravelBatch != 0)) {
 			// Run analysis on all models
 			vector<torch::Tensor> results; // one for each model
 			auto                  batchCuda = gravelBatch.cuda();
@@ -407,19 +411,16 @@ void PhotoProcessor::AssessmentThread() {
 
 	while (!Finished) {
 		QHaveRoadType.SemaphoreObj().wait();
-		auto job = QHaveRoadType.PopTailR();
+		BusyLock busy(BusyLockCounter);
+		auto     job = QHaveRoadType.PopTailR();
 		if (Finished)
 			break;
 
-		// null job means a pipeline flush
+		auto t                  = job->RGB.permute({2, 0, 1}); // HWC -> CHW
+		batch[batchJobs.size()] = t;
+		batchJobs.push_back(job);
 
-		if (job) {
-			auto t                  = job->RGB.permute({2, 0, 1}); // HWC -> CHW
-			batch[batchJobs.size()] = t;
-			batchJobs.push_back(job);
-		}
-
-		if (batchJobs.size() == Model->BatchSize || (job == nullptr && batchJobs.size() != 0)) {
+		if (batchJobs.size() != 0 && (batchJobs.size() == Model->BatchSize || IsQueueDrained())) {
 			torch::NoGradGuard nograd;
 			auto               err = Model->Run(GPULock, batch, batchJobs);
 			if (!err.OK())
@@ -429,11 +430,6 @@ void PhotoProcessor::AssessmentThread() {
 			for (size_t i = 0; i < batchJobs.size(); i++)
 				PushToQueue(QDone, MaxQDone, batchJobs[i]);
 			batchJobs.clear();
-		}
-
-		if (!job) {
-			// Push pipeline flush
-			PushToQueue(QDone, MaxQDone, nullptr);
 		}
 	}
 }
@@ -456,53 +452,51 @@ void PhotoProcessor::UploadThread() {
 
 	while (!Finished) {
 		QDone.SemaphoreObj().wait();
-		auto job = QDone.PopTailR();
+		BusyLock busy(BusyLockCounter);
+		auto     job = QDone.PopTailR();
 		if (Finished)
 			break;
 
-		if (job) {
-			auto& jphotos = batch["Photos"];
-			auto& jphoto  = jphotos[job->PhotoURL];
-			// If we were to run multiple models, then we could conceptually merge the JSON here.
-			// Alternatively, we could have multiple fields in the DB, one field for each model.
-			// So many ways.. such arbitrary decisions!
-			auto& jmodels     = jphoto["Models"];
-			auto& jmodel      = jmodels[Model->ModelName];
-			jmodel["Version"] = CombinedModelVersion();
-			jmodel["Count"]   = job->DBOutput;
-			//tsf::print("Upload thread got %v\n", job->DBOutput.dump());
-			// This was the old code for the gravel road stuff
-			// photo["road_type"] = RoadTypeToChar(job->RoadType);
-			// auto& severity     = photo["Severity"];
-			// for (size_t i = 0; i < Models.size(); i++)
-			// 	severity[Models[i].Name] = job->Results[i];
+		auto& jphotos = batch["Photos"];
+		auto& jphoto  = jphotos[job->PhotoURL];
+		// If we were to run multiple models, then we could conceptually merge the JSON here.
+		// Alternatively, we could have multiple fields in the DB, one field for each model.
+		// So many ways.. such arbitrary decisions!
+		auto& jmodels     = jphoto["Models"];
+		auto& jmodel      = jmodels[Model->ModelName];
+		jmodel["Version"] = CombinedModelVersion();
+		jmodel["Count"]   = job->DBOutput;
+		//tsf::print("Upload thread got %v\n", job->DBOutput.dump());
+		// This was the old code for the gravel road stuff
+		// photo["road_type"] = RoadTypeToChar(job->RoadType);
+		// auto& severity     = photo["Severity"];
+		// for (size_t i = 0; i < Models.size(); i++)
+		// 	severity[Models[i].Name] = job->Results[i];
 
-			string cloudPath = job->CloudStoragePath();
+		string cloudPath = job->CloudStoragePath();
 
-			string analysisPng;
-			auto   err = job->AnalysisImage.SavePngBuffer(analysisPng, false, 9);
-			IMQS_ASSERT(err.OK());
-			for (int attempt = 0; true; attempt++) {
-				if (cloudPath.find('/') == 0) {
-					cloudPath = cloudPath.substr(1);
-				}
-				string analysisPath = "analysis/" + Model->ModelName + "/" + cloudPath;
-				err                 = UploadToCloudStorage(cx, CloudStorage, analysisPath, "image/png", analysisPng);
-				if (err.OK())
-					break;
-				tsf::print("Upload %v to cloud storage failed: %v\n", analysisPath, err.Message());
-				if (attempt == MaxUploadAttempts) {
-					tsf::print("Giving up and aborting\n");
-					Finished = true;
-					break;
-				}
-				os::Sleep((1 << attempt) * time::Second);
+		string analysisPng;
+		auto   err = job->AnalysisImage.SavePngBuffer(analysisPng, false, 9);
+		IMQS_ASSERT(err.OK());
+		for (int attempt = 0; true; attempt++) {
+			if (cloudPath.find('/') == 0) {
+				cloudPath = cloudPath.substr(1);
 			}
-
-			batchSize++;
+			string analysisPath = "analysis/" + Model->ModelName + "/" + cloudPath;
+			err                 = UploadToCloudStorage(cx, CloudStorage, analysisPath, "image/png", analysisPng);
+			if (err.OK())
+				break;
+			tsf::print("Upload %v to cloud storage failed: %v\n", analysisPath, err.Message());
+			if (attempt == MaxUploadAttempts) {
+				tsf::print("Giving up and aborting\n");
+				Finished = true;
+				break;
+			}
+			os::Sleep((1 << attempt) * time::Second);
 		}
+		batchSize++;
 
-		if (batchSize == UploadBatchSize || (job == nullptr && batchSize != 0)) {
+		if (batchSize != 0 && (batchSize == UploadBatchSize || IsQueueDrained())) {
 			for (int attempt = 0; true; attempt++) {
 				double photosPerSecond = ((double) TotalUploaded.load() + batchSize) / (time::Now() - StartTime).Seconds();
 				auto   timeRemaining   = (((double) TotalPhotos - TotalUploaded) / photosPerSecond) * time::Second;
@@ -584,6 +578,10 @@ void PhotoProcessor::PushToQueue(TQueue<PhotoJob*>& queue, int maxQueueSize, Pho
 
 std::string PhotoProcessor::CombinedModelVersion() const {
 	return Model->Meta.Version + "-" + Model->PostNNModelVersion;
+}
+
+bool PhotoProcessor::IsQueueDrained() {
+	return QNotStarted.Size() == 0;
 }
 
 void PhotoProcessor::DumpPhotos(std::vector<PhotoJob*> jobs) {

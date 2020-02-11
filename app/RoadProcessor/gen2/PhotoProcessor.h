@@ -35,11 +35,10 @@ class PhotoProcessor {
 public:
 	// We should only need a single thread for each neural network phase, because a single thread can
 	// load up a bunch of sample in a batch
-	//int             NumFetchThreads      = 8; // Threads that download, decode, and create tensor
-	int                 NumFetchThreads      = 1; // HACK // Threads that download, decode, and create tensor
+	int                 NumFetchThreads      = 8; // Threads that download, decode, and create tensor
 	int                 NumRoadTypeThreads   = 1;
-	int                 NumAssessmentThreads = 1;
-	int                 NumUploadThreads     = 1;
+	int                 NumAssessmentThreads = 2;
+	int                 NumUploadThreads     = 4;
 	bool                EnableRoadType       = false;   // This isn't necessary for our tar_defects model
 	bool                RedoAll              = false;   // Rerun analysis on all photos. If false, then only perform analysis on photos that have not yet been processed.
 	AnalysisModel*      Model                = nullptr; // The one and only analysis model. It wouldn't be hard to have a few models here, instead of just one.
@@ -60,6 +59,7 @@ private:
 	torch::jit::script::Module MRoadType;     // This is a special model, because the others depend on it
 	std::string                SessionCookie; // Cookie on roads.imqs.co.za
 	std::mutex                 GPULock;       // Keep memory predictable by only running one model at a time
+	std::atomic<int>           BusyLockCounter;
 
 	//std::vector<PhotoModel>    Models;
 
@@ -86,6 +86,7 @@ private:
 	Error       LoadModels();
 	void        PushToQueue(TQueue<PhotoJob*>& queue, int maxQueueSize, PhotoJob* job);
 	std::string CombinedModelVersion() const;
+	bool        IsQueueDrained();
 
 	static void DumpPhotos(std::vector<PhotoJob*> jobs);
 };

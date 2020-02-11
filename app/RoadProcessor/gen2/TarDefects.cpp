@@ -8,7 +8,7 @@ namespace imqs {
 namespace roadproc {
 
 TarDefectsModel::TarDefectsModel() {
-	BatchSize          = 1;
+	BatchSize          = 4;
 	ModelName          = "tar_defects";
 	PostNNModelVersion = "1.0.0"; // Change this when the C++ code changes. The Neural Network model version lives inside Meta.Version
 	// Sizes must be a multiple of 64 (I think!. Could be 32.. or 16.. or 8)
@@ -18,9 +18,11 @@ TarDefectsModel::TarDefectsModel() {
 }
 
 Error TarDefectsModel::Run(std::mutex& gpuLock, const torch::Tensor& input, const std::vector<PhotoJob*>& output) {
-	gpuLock.lock();
+	// I haven't bothered to check whether enabling this mutex has a performance benefit, so I'm
+	// leaving it off.
+	//gpuLock.lock();
 	auto batchRes = Model.forward({input.cuda()}).toTensor();
-	gpuLock.unlock();
+	//gpuLock.unlock();
 
 	//tsf::print("Result size: %v\n", SizeToString(batchRes));
 	// Shape of res: [1,12,56,152]
