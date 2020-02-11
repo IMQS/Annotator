@@ -1,9 +1,20 @@
 ####################################################################################################################
 FROM roads-cppbuild
 
+# TODO: Move these into roads-cppbuild
+RUN apt-get install -y \
+	libssl-dev
+
 COPY . /build/
 WORKDIR /build
 RUN tundra2 linux-clang-release RoadProcessor
+
+# These lines are useful to verify that we can indeed run RoadProcessor from inside it's "build" container.
+# This is a useful sense check when you get share-library failures when running RoadProcessor inside it's
+# deployment container.
+#RUN ls -la  /build/t2-output/linux-clang-release-default
+#RUN ldconfig /usr/local/cuda-10.2/compat
+#RUN LD_LIBRARY_PATH=/build/t2-output/linux-clang-release-default t2-output/linux-clang-release-default/RoadProcessor --help
 
 ####################################################################################################################
 FROM nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04
@@ -49,9 +60,14 @@ COPY --from=0 \
  /usr/local/share/lensfun/ \
  /usr/local/share/lensfun/
 
-COPY --from=0 \
- /usr/local/libtorch/lib/* \
- /usr/local/lib/
+# Instead of copying all the libtorch binaries, we instruct units.lua to
+# copy only the specific libtorch .so files that we need, into t2-output.
+# Then, in production, we just use LD_LIBRARY_PATH to ensure that those .so
+# files are found.
+#
+#COPY --from=0 \
+# /usr/local/libtorch/lib/* \
+# /usr/local/lib/
 
 COPY --from=0 \
  /usr/local/lib/libnvcuvid.so \
@@ -59,11 +75,16 @@ COPY --from=0 \
  /usr/local/lib/
 
 RUN mkdir /deploy
-COPY --from=0 /build/t2-output/linux-clang-release-default/RoadProcessor /deploy/
-COPY --from=0 /build/t2-output/linux-clang-release-default/*.so /usr/local/lib/
+COPY --from=0 \
+	/build/t2-output/linux-clang-release-default/RoadProcessor \
+	/build/t2-output/linux-clang-release-default/uberlogger \
+	/build/t2-output/linux-clang-release-default/*.so \
+	/build/t2-output/linux-clang-release-default/*.so.* \
+	/deploy/
 
-RUN ldconfig /usr/local/cuda-10.0/compat
+RUN ldconfig /usr/local/cuda-10.2/compat
 
 COPY models/ /deploy/models/
 
+ENV LD_LIBRARY_PATH=/deploy
 ENTRYPOINT ["/deploy/RoadProcessor"]
