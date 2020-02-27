@@ -10,7 +10,7 @@ using namespace std;
 namespace imqs {
 namespace roadproc {
 
-const static string BaseUrl = "http://roads.imqs.co.za";
+const static string BaseUrl = "https://roads.imqs.co.za";
 const static string ApiBase = BaseUrl + "/api";
 
 static Error GetTracks(http::Connection& con, string& sessionCookie, string speedFile, string trackFile) {

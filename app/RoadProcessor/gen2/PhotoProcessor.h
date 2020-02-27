@@ -42,12 +42,13 @@ public:
 	bool                EnableRoadType       = false;   // This isn't necessary for our tar_defects model
 	bool                RedoAll              = false;   // Rerun analysis on all photos. If false, then only perform analysis on photos that have not yet been processed.
 	AnalysisModel*      Model                = nullptr; // The one and only analysis model. It wouldn't be hard to have a few models here, instead of just one.
-	std::string         BaseUrl;                        // URL where 'console' DB service is running (default from command line args is http://roads.imqs.co.za)
+	std::string         BaseUrl;                        // URL where 'console' DB service is running (default from command line args is https://roads.imqs.co.za)
 	std::atomic<bool>   Finished;                       // Toggled at the end of RunInternal(), after all queues have drained
 	std::atomic<size_t> TotalUploaded;                  // Total number of photos that have been uploaded since RunInternal() started
 	std::atomic<size_t> TotalPhotos;                    // Total number of photos that are going to be processed
 	time::Time          StartTime;                      // Time when RunInternal() started
-	CloudStorageDetails CloudStorage;
+	std::mutex          CloudStorageLock;               // You must own this when reading or writing from CloudStorage
+	CloudStorageDetails CloudStorage;                   // Make sure you use CloudStorageLock
 
 	PhotoProcessor();
 
@@ -84,9 +85,12 @@ private:
 	void        AssessmentThread();
 	void        UploadThread();
 	Error       LoadModels();
+	Error       PublishModels();
 	void        PushToQueue(TQueue<PhotoJob*>& queue, int maxQueueSize, PhotoJob* job);
 	std::string CombinedModelVersion() const;
 	bool        IsQueueDrained();
+	Error       CloudLoginIfExpired();
+	Error       CloudLogin();
 
 	static void DumpPhotos(std::vector<PhotoJob*> jobs);
 };

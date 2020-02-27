@@ -10,17 +10,20 @@ struct ImageCropParams {
 	int TargetWidth   = 0; // Image width required by the model(s). This alone defines the amount by which we scale the source imagery.
 	int TargetHeight  = 0; // Image height required by the model(s)
 	int BottomDiscard = 0; // Number of pixels from original 4000x3000 image that we discard.
+
+	void SaveConsoleServerJson(nlohmann::json& jmeta, int srcWidth, int srcHeight); // Save metadata for the "Console" cloud service
 };
 
 // Information describing a model, such as the category labels
 struct ModelMeta {
-	std::string                  Version; // Version of the Neural Network. There is also the version of the C++ code, which is appended to this NN version.
+	std::string                  Version; // Version of the Neural Network. In addition, there is also the version of the C++ code, which is appended to this NN version.
 	ohash::map<std::string, int> NameToCategory;
 	std::vector<std::string>     CategoryToName;
 
 	size_t NumCategories() const { return CategoryToName.size(); }
 
 	Error LoadJson(const std::string& jStr);
+	void  SaveConsoleServerJson(nlohmann::json& jmeta); // Save metadata for the "Console" cloud service
 };
 
 // Base class of an analysis model
@@ -44,6 +47,8 @@ public:
 	static Error Load(std::string baseFilename, torch::jit::script::Module& model, ModelMeta& meta);
 
 	void SegmentationSummaryToJSON(const gfx::Image& result, nlohmann::json& jcount) const;
+
+	std::string CombinedVersion() const { return Meta.Version + "-" + PostNNModelVersion; }
 };
 
 } // namespace roadproc

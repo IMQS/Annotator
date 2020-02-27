@@ -200,7 +200,7 @@ int main(int argc, char** argv) {
 	auto bench = args.AddCommand("bench", "Various internal benchmarks", Bench);
 
 	auto photos = args.AddCommand("photos <username> <password> <client> <prefix> <cloud storage credentials file>", "Run the gen2 models on GoPro photos", PhotoProcessor::Run);
-	photos->AddValue("s", "server", "Server where the 'console' service runs", "http://roads.imqs.co.za");
+	photos->AddValue("s", "server", "Server where the 'console' service runs", "https://roads.imqs.co.za");
 	photos->AddSwitch("a", "all", "Rerun analysis on all photos (otherwise only photos without analysis)");
 
 	if (!args.Parse(argc, (const char**) argv))

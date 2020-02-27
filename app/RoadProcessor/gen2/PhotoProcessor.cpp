@@ -39,7 +39,7 @@ static Error FindPhotosOnServer(std::string baseUrl, std::string client, std::st
 	// the LIKE statement on the API side looks like this:
 	//   like := "gs://roadphoto.imqs.co.za/" + client + "/" + prefix + "%%"
 
-	// eg curl http://roads.imqs.co.za/api/ph/photos?client=za.nl.um.--&prefix=2019/2019-02-27/164GOPRO
+	// eg curl https://roads.imqs.co.za/api/ph/photos?client=za.nl.um.--&prefix=2019/2019-02-27/164GOPRO
 
 	string                     api = baseUrl + "/api/ph/photos?";
 	ohash::map<string, string> q   = {
@@ -55,7 +55,7 @@ static Error FindPhotosOnServer(std::string baseUrl, std::string client, std::st
 		return Error::Fmt("Error fetching photos from %v: %v", fullUrl, resp.ToError().Message());
 	}
 	// Example analysis JSON:
-	// {"Models": {"tar_defects": {"Count": {"curb": 707, "none": 7445, "brick": 3, "manhole": 181, "not-road": 175, "long-crack": 1}, "Version": "tar-1.0.0-1.0.0"}}}
+	// {"Models": {"tar_defects": {"Count": {"curb": 707, "none": 7445, "brick": 3, "manhole": 181, "not-road": 175, "long-crack": 1}, "Version": "1.0.0-1.0.0"}}}
 
 	nlohmann::json jroot;
 	auto           err = nj::ParseString(resp.Body, jroot);
@@ -95,8 +95,9 @@ PhotoProcessor::PhotoProcessor() {
 	TotalUploaded   = 0;
 	BusyLockCounter = 0;
 
-	CloudStorage.Bucket   = "roadphoto.imqs.co.za";
-	CloudStorage.Platform = "gcs";
+	CloudStorage.Bucket    = "roadphoto.imqs.co.za";
+	CloudStorage.Platform  = "gcs";
+	CloudStorage.LastLogin = time::Now() - 100 * time::Hour;
 
 	// Setup for tar_defects
 	Model = new TarDefectsModel();
@@ -141,12 +142,19 @@ Error PhotoProcessor::RunInternal(string username, string password, string clien
 		return err;
 
 	tsf::print("Logging in to Cloud Storage system\n");
-	err = GCSLoginWithFile(cloudStorageAuthFile, CloudStorage.AuthToken);
+
+	CloudStorage.AuthFilename = cloudStorageAuthFile;
+	err                       = CloudLogin();
 	if (!err.OK())
 		return err;
 
 	tsf::print("Loading models\n");
 	err = LoadModels();
+	if (!err.OK())
+		return err;
+
+	tsf::print("Publishing model details\n");
+	err = PublishModels();
 	if (!err.OK())
 		return err;
 
@@ -158,7 +166,7 @@ Error PhotoProcessor::RunInternal(string username, string password, string clien
 
 	// Remove photos that have already been processed
 	vector<string> remainingPhotos;
-	string         modelVersion = CombinedModelVersion();
+	string         modelVersion = Model->CombinedVersion();
 	for (const auto& p : photos) {
 		if (RedoAll || p.ModelVersion != modelVersion)
 			remainingPhotos.push_back(p.PhotoUrl);
@@ -446,7 +454,7 @@ void PhotoProcessor::UploadThread() {
 	//   513 152x56-5.png
 	//   439 152x56-9.png
 
-	batch["ModelVersion"] = CombinedModelVersion();
+	batch["ModelVersion"] = Model->CombinedVersion();
 
 	http::Connection cx;
 
@@ -457,6 +465,19 @@ void PhotoProcessor::UploadThread() {
 		if (Finished)
 			break;
 
+		Error err;
+		for (int attempt = 0; attempt < 5; attempt++) {
+			err = CloudLoginIfExpired();
+			if (err.OK())
+				break;
+			tsf::print("Failed to login to cloud: %v\n", err.Message());
+		}
+		if (!err.OK()) {
+			tsf::print("Giving up on cloud login, and aborting\n");
+			Finished = true;
+			break;
+		}
+
 		auto& jphotos = batch["Photos"];
 		auto& jphoto  = jphotos[job->PhotoURL];
 		// If we were to run multiple models, then we could conceptually merge the JSON here.
@@ -464,7 +485,7 @@ void PhotoProcessor::UploadThread() {
 		// So many ways.. such arbitrary decisions!
 		auto& jmodels     = jphoto["Models"];
 		auto& jmodel      = jmodels[Model->ModelName];
-		jmodel["Version"] = CombinedModelVersion();
+		jmodel["Version"] = Model->CombinedVersion();
 		jmodel["Count"]   = job->DBOutput;
 		//tsf::print("Upload thread got %v\n", job->DBOutput.dump());
 		// This was the old code for the gravel road stuff
@@ -476,7 +497,7 @@ void PhotoProcessor::UploadThread() {
 		string cloudPath = job->CloudStoragePath();
 
 		string analysisPng;
-		auto   err = job->AnalysisImage.SavePngBuffer(analysisPng, false, 9);
+		err = job->AnalysisImage.SavePngBuffer(analysisPng, false, 9);
 		IMQS_ASSERT(err.OK());
 		for (int attempt = 0; true; attempt++) {
 			if (cloudPath.find('/') == 0) {
@@ -564,6 +585,25 @@ Error PhotoProcessor::LoadModels() {
 	return Error();
 }
 
+Error PhotoProcessor::PublishModels() {
+	// Upload the model metadata to the 'console' service.
+	// Metadata includes (and perhaps other things too):
+	// * Version of the model
+	// * Mapping from integer class to class name (eg class 0 = brick surface, class 1 = crack, class 2 = manhole, etc)
+	string         fullVersion = Model->ModelName + "-" + Model->CombinedVersion();
+	nlohmann::json meta;
+	Model->Meta.SaveConsoleServerJson(meta);
+	Model->CropParams.SaveConsoleServerJson(meta, 4000, 3000); // HACK - it would be better not to hardcode this.
+
+	http::Connection cx;
+	auto             req = http::Request::POST(PhotoProcessor::BaseUrl + "/api/ph/model/" + url::Encode(fullVersion));
+	req.AddCookie("session", SessionCookie);
+	tsf::print("Publishing model %v metadata\n", fullVersion);
+	req.Body = meta.dump();
+	auto res = cx.Perform(req);
+	return res.ToError();
+}
+
 void PhotoProcessor::PushToQueue(TQueue<PhotoJob*>& queue, int maxQueueSize, PhotoJob* job) {
 	while (queue.Size() >= maxQueueSize) {
 		if (Finished) {
@@ -582,6 +622,24 @@ std::string PhotoProcessor::CombinedModelVersion() const {
 
 bool PhotoProcessor::IsQueueDrained() {
 	return QNotStarted.Size() == 0;
+}
+
+Error PhotoProcessor::CloudLoginIfExpired() {
+	{
+		// GCS token expiry is 1 hour, so 15 minute timeout is plenty
+		lock_guard<mutex> lock(CloudStorageLock);
+		if (time::Now() - CloudStorage.LastLogin < 15 * time::Minute)
+			return Error();
+	}
+	return CloudLogin();
+}
+
+Error PhotoProcessor::CloudLogin() {
+	lock_guard<mutex> lock(CloudStorageLock);
+	auto              err = GCSLoginWithFile(CloudStorage.AuthFilename, CloudStorage.AuthToken);
+	if (err.OK())
+		CloudStorage.LastLogin = time::Now();
+	return err;
 }
 
 void PhotoProcessor::DumpPhotos(std::vector<PhotoJob*> jobs) {

@@ -7,6 +7,17 @@ using namespace std;
 namespace imqs {
 namespace roadproc {
 
+void ImageCropParams::SaveConsoleServerJson(nlohmann::json& jmeta, int srcWidth, int srcHeight) {
+	nlohmann::json j = {
+	    {"SourceWidth", srcWidth},
+	    {"SourceHeight", srcHeight},
+	    {"TargetWidth", TargetWidth},
+	    {"TargetHeight", TargetHeight},
+	    {"BottomDiscard", BottomDiscard},
+	};
+	jmeta["Crop"] = move(j);
+}
+
 Error ModelMeta::LoadJson(const std::string& jStr) {
 	nlohmann::json j;
 	auto           err = nj::ParseString(jStr, j);
@@ -27,6 +38,16 @@ Error ModelMeta::LoadJson(const std::string& jStr) {
 			CategoryToName[p.second] = p.first;
 	}
 	return Error();
+}
+
+void ModelMeta::SaveConsoleServerJson(nlohmann::json& jmeta) {
+	nlohmann::json jcats;
+	for (const auto& c : CategoryToName) {
+		nlohmann::json jcat;
+		jcat["Name"] = c;
+		jcats.push_back(move(jcat));
+	}
+	jmeta["Categories"] = move(jcats);
 }
 
 Error AnalysisModel::Load(std::string baseFilename) {
